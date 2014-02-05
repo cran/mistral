@@ -24,8 +24,13 @@ WilksFormula(alpha=0.95,beta=0.95,bilateral=FALSE,order=1)
      order of the Wilks formula (default = 1)
    }
 }
+
 \value{
   \item{N}{The minimal sample size to apply Wilks formula}
+}
+
+\author{
+  Paul Lemaitre and Bertrand Iooss
 }
 
 \examples{ 
