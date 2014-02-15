@@ -52,6 +52,10 @@ FORM(f, u.dep, choice.law, N.calls = 1e4, eps = 1e-7,
   \item{DOE}{List which contains the design of experiments}
 }
 
+\author{
+  Vincent Moutoussamy
+}
+
 \examples{ 
  distribution = list()
  distribution[[1]] = list("gamma",c(2,1))
@@ -61,7 +65,15 @@ FORM(f, u.dep, choice.law, N.calls = 1e4, eps = 1e-7,
     X[1]/sum(X) - qbeta((1e-5),2,3)
  }
 
- res.list <- FORM(func, u.dep = c(0,0.1), choice.law = distribution, N.calls = 1000, eps = 1e-7, Method = "HLRF", IS = "TRUE", q = 0.1, copula = "unif")
+ res.list <- FORM(func,
+                  u.dep = c(0,0.1),
+                  choice.law = distribution,
+                  N.calls = 1000,
+                  eps = 1e-7,
+                  Method = "HLRF",
+                  IS = "TRUE",
+                  q = 0.1,
+                  copula = "unif")
 }
 
 \references{
