@@ -31,6 +31,7 @@ U = matrix(rnorm(dimension*N_batch),dimension,N_batch)
 
 if(verbose>1){cat("   - Evaluate LSF on these samples\n")}
 G = apply(U, 2, LimitStateFunction); Ncall = Ncall + N_batch
+indG <- which(G < failure)
 
 if(verbose>1){cat("   - Evaluate failure probability and corresponding CoV \n")}
 P = mean(G < failure)

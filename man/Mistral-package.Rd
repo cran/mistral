@@ -28,7 +28,7 @@ This package provides tools for structural reliability analysis:
 }
 }
 
-\author{Nicolas BOUSQUET, Gilles DEFAUX, Bertrand IOOSS, Vincent MOUTOUSSAMY, Clement WALTER 
+\author{Gilles Defaux, Bertrand Iooss, Vincent Moutoussamy, Clement Walter with contributions from Nicolas Bousquet and Paul Lemaitre 
 (maintainer: Bertrand Iooss \email{biooss@yahoo.fr})}
 
 \references{

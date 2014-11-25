@@ -99,7 +99,10 @@ Problem is supposed to be defined in the standard space. If not, use \code{\link
 
 \examples{
 #Limit state function defined by Kiureghian & Dakessian :
-kiureghian = function(x, b=5, kappa=0.5, e=0.1) {b - x[2] - kappa*(x[1]-e)^2}
+kiureghian = function(x, b=5, kappa=0.5, e=0.1) {
+x = as.matrix(x)
+b - x[2,] - kappa*(x[1,]-e)^2
+}
 
 \dontrun{
 res = S2MART(dimension = 2,
@@ -112,12 +115,14 @@ reference = MonteCarlo(2, kiureghian, N_max = 500000)
 }
 
 #See impact of metamodel-based subset simulation with Waarts function :
-waarts = function(u) { min(
-		(3+(u[1]-u[2])^2/10 - (u[1]+u[2])/sqrt(2)),
+waarts = function(x) {
+x = as.matrix(x)
+apply(x, 2, function(u) {min(
+  	(3+(u[1]-u[2])^2/10 - (u[1]+u[2])/sqrt(2)),
 		(3+(u[1]-u[2])^2/10 + (u[1]+u[2])/sqrt(2)),
 		u[1]-u[2]+7/sqrt(2),
-		u[2]-u[1]+7/sqrt(2))
-	}
+		u[2]-u[1]+7/sqrt(2))})
+}
 
 \dontrun{
 res = list()

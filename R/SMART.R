@@ -129,13 +129,23 @@ SMART = function(dimension,
 	}
 
 	if(verbose>0){cat(" * Assessment of g on these points\n")}
-	G$Nu = apply(U$Nu,2,limit_state_function);Ncall = Ncall + Nu
+	G$Nu = limit_state_function(U$Nu);Ncall = Ncall + Nu
 
 	#plotting part
 	if(plot==TRUE){
 	  if(verbose>0){cat("2D PLOT : FIRST DoE \n")}
-		if(is.null(z_MH)) {symbols(0,0,circles=Ru,inches=F,add=TRUE)}
-		else {contour(x_plot,y_plot,z_MH,level=0,labels="Subset limit",method="edge",add=TRUE)}
+		if(is.null(limit_fun_MH)) {
+      symbols(0,0,circles=Ru,inches=F,add=TRUE)
+		}
+		else{
+      if(is.null(z_MH)){
+        z = rbind(rep(x_plot,length(y_plot)),sort(rep(y_plot,length(x_plot))))
+        z_meta = limit_fun_MH(z)
+        z_meta$mean = matrix(z_meta$mean,length(x_plot),length(y_plot))
+        z_MH = z_meta$mean
+      }
+      contour(x_plot,y_plot,z_MH,level=0,labels="Subset limit",method="edge",add=TRUE)
+		}
 		points(U$Nu[1,],U$Nu[2,],pch=3,col=2)
 		contour(x_plot,y_plot,z_lsf,level=failure,labels=paste("LSF=",failure,sep=""),method="edge",add=TRUE)
 	}
@@ -207,8 +217,8 @@ SMART = function(dimension,
 		Nclose = round(Nsup/100*(aClose+(k-k_start)/(k_end-k_start)*(bClose-aClose)))
 	  if(verbose>1){cat("   - Nsup =",Nsup,"\n")
 		cat("   - Nmargin =",Nmargin,"\n")
-		cat("   - Nswitch =",Nswitch,"\n")}
-		cat("   - Nclose =",Nclose,"\n\n")
+		cat("   - Nswitch =",Nswitch,"\n")
+		cat("   - Nclose =",Nclose,"\n\n")}
 
 		if(is.null(limit_fun_MH)){
 			if(stage==3) {
@@ -269,7 +279,7 @@ SMART = function(dimension,
         
 				#Assessment of g
 				if(verbose>0){cat(" * Assessment of g on these points \n")}
-				G$Nmargin <- apply(U$Nmargin,2,limit_state_function);Ncall = Ncall + Nmargin
+				G$Nmargin <- limit_state_function(U$Nmargin);Ncall = Ncall + Nmargin
 				#Add points U$Nmargin to the learning database
 				if(verbose>0){cat(" * Add points to the learning database\n")}
 				learn_db <- cbind(learn_db,U$Nmargin)
@@ -293,13 +303,12 @@ SMART = function(dimension,
 			isSwitched = as.logical(sign(G_meta_prev*G_meta[[stage]])<0)
 		  if(verbose>1){cat("   - Number of switching points =",sum(isSwitched*1),"\n")}
 			if(!sum(isSwitched)==0){
-				U$Nswitch = tryCatch(
-					t(kmeans(t(U[[stage]][,isSwitched]), centers=Nswitch, iter.max=30)$centers),
-					error = function(cond) {
-						message(cond)
-						message("\nall switching points are kept")
-						return(U[[stage]][,isSwitched])
-					})
+			  U$Nswitch <- tryCatch(t(kmeans(t(U[[stage]][,isSwitched]), centers=Nswitch, iter.max=30)$centers),
+			           error = function(cond) {
+			             message(cond);
+			             message("\nall switching points are kept");
+			             return(U[[stage]][,isSwitched]);
+			           })
 				U$Nswitch = as.matrix(U$Nswitch)
 
 				#plotting part
@@ -310,7 +319,7 @@ SMART = function(dimension,
         
 				#Assessment of g
 				if(verbose>0){cat(" * Assessment of g\n")}
-				G$Nswitch = apply(U$Nswitch,2,limit_state_function);Ncall = Ncall + Nswitch
+				G$Nswitch = limit_state_function(U$Nswitch);Ncall = Ncall + Nswitch
 				#Add points U$Nmargin + U$Nswitch to the learning database
 				if(verbose>0){cat(" * Add points U$Nswitch  to the learning database\n")}
 				learn_db = cbind(learn_db,U$Nswitch)
@@ -341,7 +350,7 @@ SMART = function(dimension,
       
 			#Assessment of g
 		  if(verbose>0){cat(" * Assessment of g\n")}
-			G$Nclose = apply(U$Nclose,2,limit_state_function);Ncall = Ncall + Nclose
+			G$Nclose = limit_state_function(U$Nclose);Ncall = Ncall + Nclose
 			#Add points U$Nclose to the learning database
 		  if(verbose>0){cat(" * Add points U$Nclose to the learning database\n")}
 			learn_db = cbind(learn_db,U$Nclose)
@@ -415,7 +424,11 @@ SMART = function(dimension,
 	#estimation of probability P using metamodel classifier values
 	if(verbose>0){cat(" * estimation of probability P using metamodel classifier values\n")}
 	if(!is.null(limit_fun_MH)) {
-		gen_pop = generateWithlrmM(seeds=seeds$N3,seeds_eval=seeds_eval$N3,N=N,lambda=lambda,limit_f=limit_fun_MH,burnin=burnin,thinning=thinning,VA_function=function(x){1*(meta_fun(x)$mean<0)})
+		capture.output(gen_pop <- generateWithlrmM(seeds=seeds$N3,seeds_eval=seeds_eval$N3,
+                                               N=N,lambda=lambda,limit_f=limit_fun_MH,
+                                               burnin=burnin,thinning=thinning,
+                                               VA_function=function(x){1*(meta_fun(x)$mean<0)})
+                   )
 		fail_points = gen_pop$VA_values
 		points=gen_pop$points[,fail_points]
 		meta_eval= meta_fun(points)$mean

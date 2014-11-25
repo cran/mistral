@@ -69,12 +69,12 @@ MetaIS(dimension,
   \item{learn_each_train}{specify if hyperparameters of the model should be evaluated each time points are added to the learning database ("TRUE") or only the first time ("FALSE").}
   \item{limit_fun_MH}{optional. If the working space is to be reduced to some subset defining by a function, eg. in case of use in a Subset Simulation algorithm. As for the \code{limit_state_function}, failure domain is defined by points whom values of \code{limit_fun_MH} are negative.}
   \item{sampling_strategy}{either "AR" or "MH", to specify which sampling strategy is to be used when generating Monte-Carlo population in a case of subset simulation : "AR" stands for \sQuote{accept-reject} while "MH" stands for Metropolis-Hastings.}
-  \item{seeds}{optional. If \code{sampling_strategy}=="MH", seeds from which starting the Metrepolis-Hastings algorithm. This should be a matrix with \sQuote{nrow} = \code{dimension} and \sQuote{ncol} = number of vector.}
+  \item{seeds}{optional. If \code{sampling_strategy}=="MH", seeds from which MH algorithm starts. This should be a matrix with \sQuote{nrow} = \code{dimension} and \sQuote{ncol} = number of vector.}
   \item{seeds_eval}{optional. The value of the \code{limit_fun_MH} on the \code{seeds}.}
   \item{burnin}{a burnin parameter for Metropolis-Hastings algorithm. To be used only for Monte-Carlo population sampling and set to 0 elsewhere.}
   \item{thinning}{a thinning parameter for Metropolis-Hastings algorithm. \code{thinning} = 0 means no thinning. To be used only for Monte-Carlo population sampling and set to 0 elsewhere.}
   \item{plot}{a boolean parameter specifying if function and samples should be plotted. The plot is refreshed at each iteration with the new data. Note that this option is only to be used when working on \sQuote{light} limit state functions as it requires the calculus of this function on a grid of size 161x161 (plot is done a -8:8 x -8:8 grid with 161 meshes.}
-  \item{limited_plot}{only a final plot with \code{limit_state_function}, final DOE and metamodel. Should be used with \code{plot}==FALSE. As for \code{plot} it requires the calculus of the \code{limit_state_function} on a grid of size 161x161.}
+  \item{limited_plot}{only a final plot with \code{limit_state_function}, final DOE and metamodel. Should be used with \code{plot}==FALSE.}
   \item{add}{optional. "TRUE" if plots are to be added to the current active device.}
   \item{output_dir}{optional. If plots are to be saved in .jpeg in a given directory. This variable will be pasted with "_MetaIS.jpeg" to get the full output directory.}
   \item{z_MH}{optional. For plots, if metamodel has already been evaluated on the grid then \code{z_MH} (from outer function) can be provided to avoid extra computational time.}
@@ -150,7 +150,10 @@ Furthermore, each time a set of vector is defined as a matrix, \sQuote{nrow} = \
 
 \examples{
 #Limit state function defined by Kiureghian & Dakessian :
-kiureghian = function(x, b=5, kappa=0.5, e=0.1) {b - x[2] - kappa*(x[1]-e)^2}
+kiureghian = function(x, b=5, kappa=0.5, e=0.1) {
+x = as.matrix(x)
+b - x[2,] - kappa*(x[1,]-e)^2
+}
 
 \dontrun{res = MetaIS(dimension=2,limit_state_function=kiureghian,plot=TRUE)
 
@@ -163,19 +166,21 @@ cov = sqrt((1-P)/(N*P))
 }
 
 #See impact of kernel choice with Waarts function :
-waarts = function(u) { min(
-		(3+(u[1]-u[2])^2/10 - (u[1]+u[2])/sqrt(2)),
+waarts = function(x) {
+x = as.matrix(x)
+apply(x, 2, function(u) {min(
+  	(3+(u[1]-u[2])^2/10 - (u[1]+u[2])/sqrt(2)),
 		(3+(u[1]-u[2])^2/10 + (u[1]+u[2])/sqrt(2)),
 		u[1]-u[2]+7/sqrt(2),
-		u[2]-u[1]+7/sqrt(2))
+		u[2]-u[1]+7/sqrt(2))})
 }
 
 \dontrun{
 res = list()
-res$matern5_2 = MetaIS(dimension=2,limit_state_function=waarts,plot=TRUE)
-res$matern3_2 = MetaIS(dimension=2,limit_state_function=waarts,kernel="matern3_2",plot=TRUE)
-res$gaussian = MetaIS(dimension=2,limit_state_function=waarts,kernel="gauss",plot=TRUE)
-res$exp = MetaIS(dimension=2,limit_state_function=waarts,kernel="exp",plot=TRUE)
+res$matern5_2 = MetaIS(2,waarts,plot=TRUE)
+res$matern3_2 = MetaIS(2,waarts,kernel="matern3_2",plot=TRUE)
+res$gaussian = MetaIS(2,waarts,kernel="gauss",plot=TRUE)
+res$exp = MetaIS(2,waarts,kernel="exp",plot=TRUE)
 
 #Compare with crude Monte-Carlo reference value
 N = 500000

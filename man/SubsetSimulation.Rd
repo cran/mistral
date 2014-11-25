@@ -79,7 +79,10 @@ Furthermore, each time a set of vector is defined as a matrix, \sQuote{nrow} = \
 \examples{
 #Try Subset Simulation Monte Carlo on a given function and change number of points.
 #Limit state function defined by Kiureghian & Dakessian :
-kiureghian = function(x, b=5, kappa=0.5, e=0.1) {b - x[2] - kappa*(x[1]-e)^2}
+kiureghian = function(x, b=5, kappa=0.5, e=0.1) {
+x = as.matrix(x)
+b - x[2,] - kappa*(x[1,]-e)^2
+}
 
 \dontrun{
 res = list()
@@ -90,12 +93,15 @@ res[[3]] = SubsetSimulation(2,kiureghian,n_init_samples=500000)
 
 #Try Subset Simulation Monte Carlo on a given function with different failure level
 #Limit state function defined by Waarts :
-waarts = function(u) { min(
-    (3+(u[1]-u[2])^2/10 - (u[1]+u[2])/sqrt(2)),
+waarts = function(x) {
+x = as.matrix(x)
+apply(x, 2, function(u) {min(
+  	(3+(u[1]-u[2])^2/10 - (u[1]+u[2])/sqrt(2)),
 		(3+(u[1]-u[2])^2/10 + (u[1]+u[2])/sqrt(2)),
 		u[1]-u[2]+7/sqrt(2),
-		u[2]-u[1]+7/sqrt(2))
+		u[2]-u[1]+7/sqrt(2))})
 }
+
 \dontrun{
 res = list()
 res[[1]] = SubsetSimulation(2,waarts,failure=0,plot=TRUE)

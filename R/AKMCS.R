@@ -131,7 +131,7 @@ if(Nfailure==0){
 	)
 	
 	if(verbose>0){cat(" * Assessment of g on these points\n")}
-	G$N1 = apply(U$N1,2,limit_state_function);Ncall = Ncall + N1
+	G$N1 = limit_state_function(U$N1);Ncall = Ncall + N1
 	    
 	if(plot==TRUE){
 	  if(verbose>0){cat(" * 2D PLOT : First DoE (Red +) \n")}

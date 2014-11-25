@@ -74,7 +74,7 @@ cat("===========================================================================
 	
 		#assessment of g on these points
 		if(verbose>0){cat(" * Assessment of the LSF on these points\n")}
-		G$Nn = apply(U$Nn,2,limit_state_function);Ncall = Ncall + Nn
+		G$Nn = limit_state_function(U$Nn);Ncall = Ncall + Nn
 	
 		#Determination of y[i] as alpha-quantile of Nn points Un=U$Nn
 		if(verbose>0){cat(" * Determination of y[",i,"] as alpha-quantile of these samples\n",sep="")}
@@ -107,7 +107,8 @@ cat("===========================================================================
 					plot = plot,
 					z_lsf = z_lsf,
 					add = TRUE,
-					output_dir = output_dir,...)
+					output_dir = output_dir,
+          verbose = verbose,...)
 			    meta_step = do.call(SMART,arg)
 		}
 		else{
@@ -119,11 +120,11 @@ cat("===========================================================================
 					seeds = seeds,
 					seeds_eval = seeds_meta,
 					limit_fun_MH = meta_fun[[i-1]],
-					z_MH = z_meta[[i-1]],
 					z_lsf = z_lsf,
 					plot = plot,
 					add = TRUE,
-					output_dir = output_dir,...)
+					output_dir = output_dir,
+          verbose = verbose,...)
 				  meta_step = do.call(SMART,arg)
 		}
 
@@ -141,7 +142,7 @@ cat("===========================================================================
 		meta_model = meta_step$meta_model
 		seeds = meta_step$points
 		seeds_meta = meta_step$meta_eval
-		if(plot) {z_meta[[i]] = meta_step$z_meta}
+		z_meta[[i]] = meta_step$z_meta
 
 		if(y0>0) {cat("\n * Current threshold =",y0,"> 0 => start a new subset\n")
 			  cat("   - Current probability =",P,"\n")

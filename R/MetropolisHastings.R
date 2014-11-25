@@ -37,7 +37,7 @@ if(modified==FALSE){
 		else {
 			eval = limit_fun(candidate); Ncall = Ncall+1; MC$samples = cbind(MC$samples,candidate); MC$eval_samples = c(MC$eval_samples,eval);
 			indicatrice = (1-sign(eval))/2 #1 if limit_fun(x) < 0, 0 otherwise
-			if (indicatrice==0) {
+			if (indicatrice==0 | is.nan(indicatrice)) {
 				candidate = MC$points[,i];
 				eval = MC$eval[i]
 				tau = tau+1
@@ -64,7 +64,7 @@ if(modified==TRUE){
 		}
 		eval = limit_fun(candidate); Ncall = Ncall+1; MC$samples = cbind(MC$samples,candidate); MC$eval_samples = c(MC$eval_samples,eval);
 		indicatrice = (1-sign(eval))/2 #1 if limit_fun(x) < 0, 0 otherwise
-		if (indicatrice==0) {
+		if (indicatrice==0 | is.nan(indicatrice)) {
 			candidate = MC$points[,i];
 			eval = MC$eval[i]
 # 			tau = tau+1

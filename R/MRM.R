@@ -34,7 +34,6 @@
 #N.tot: Total number of simulation (just for "MC_monotone")
 #-----------------------------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------------------------#
-# Authors: Vincent Moutoussamy, Nicolas Bousquet
 
 
 MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, silent = TRUE){

@@ -124,7 +124,7 @@ while(cov_epsilon > precision){
 		U$N_DOE = t(kmeans(t(U$N1), centers=N_DOE,iter.max=20)$centers)
 		
 	  if(verbose>0){cat(" * Assessment of performance function G on these points\n")}
-		G$N_DOE = apply(U$N_DOE,2,limit_state_function);Ncall = Ncall + N_DOE
+		G$N_DOE = limit_state_function(U$N_DOE);Ncall = Ncall + N_DOE
 	
 	  if(verbose>0){cat(" * Add points to the learning database\n")}
 		if(is.null(learn_db)){
@@ -264,7 +264,7 @@ while(cov_epsilon > precision){
 						})
 
 		  if(verbose>0){cat(" * Calculate performance function G on candidates\n")}
-			eval = apply(candidate,2,limit_state_function);Ncall = Ncall + K_alphaLOO
+			eval = limit_state_function(candidate);Ncall = Ncall + K_alphaLOO
 
 		  if(verbose>0){cat(" * Add points to he learning database\n")}
 			learn_db = cbind(learn_db,candidate)
@@ -416,7 +416,7 @@ if(verbose>1){cat("   - Calculate approximated optimal density on the learning d
 	
 if(verbose>1){cat("   - Find samples whose value is > 0\n")}
 	if(dim(learn_db[,h_learn_db>0])[2]>0) {
-	  if(verbose>1){cat("     ? seeds =",dim(learn_db[,h_learn_db>0])[2],"samples in learn_db | h > 0\n")}
+	  if(verbose>1){cat("     ? seeds =",dim(as.matrix(learn_db[,h_learn_db>0]))[2],"samples in learn_db | h > 0\n")}
 		seeds_alpha = learn_db[,h_learn_db>0]
 	}
 	else{
@@ -452,7 +452,7 @@ if(verbose>1){cat("   - Generate N_alpha_max =",N_alpha_max,"points from",dim(se
 	  if(verbose>1){cat("     ? Evaluate limit_state_function on these samples if necessary\n")}
 		isNAinG = is.na(G$Nalpha);
 	  if(verbose>1){cat("      +",sum(isNAinG),"samples to evaluate in N_alpha =",N_alpha," samples\n")}
-		G$Nalpha[isNAinG] = apply(U$Nalpha[,isNAinG],2,limit_state_function); Ncall = Ncall + length(isNAinG)
+		G$Nalpha[isNAinG] = limit_state_function(U$Nalpha[,isNAinG]); Ncall = Ncall + length(isNAinG)
 		learn_db = cbind(learn_db,U$Nalpha[,isNAinG])
 		G$g = c(G$g,G$Nalpha[isNAinG])
 
@@ -489,7 +489,7 @@ if(verbose>1){cat("   - Generate N_alpha_max =",N_alpha_max,"points from",dim(se
 		if(verbose>0){cat("#Evaluate limit_state_function on these samples if necessary\n")}
 		isNAinG = is.na(G$Nalpha);
 		if(verbose>1){cat(sum(isNAinG),"samples to evaluate in N_alpha =",N_alpha," samples\n")}
-		G$Nalpha[isNAinG] = apply(U$Nalpha[,isNAinG],2,limit_state_function); Ncall = Ncall + length(isNAinG)
+		G$Nalpha[isNAinG] = limit_state_function(U$Nalpha[,isNAinG]); Ncall = Ncall + length(isNAinG)
 		learn_db = cbind(learn_db,U$Nalpha[,isNAinG])
 		G$g = c(G$g,G$Nalpha[isNAinG])
 

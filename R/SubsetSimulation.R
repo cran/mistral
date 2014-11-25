@@ -60,7 +60,7 @@ for (i in c(1:n_init_samples)){
 
 if(verbose>0){cat("  * evaluate the limit state function on these points \n")}
 #calcul the limit state function on these points
-G = apply(U, 2, limit_state_function);
+G = limit_state_function(U);
 Ncall = n_init_samples
 G_sorted = sort(G,index.return=TRUE);
 

@@ -63,12 +63,12 @@ SMART(dimension,
   \item{failure}{the value defining the failure domain F = \{ x | \code{limit_state_function}(x) < \code{failure} \}.}
   \item{limit_fun_MH}{optional. If the working space is to be reduced to some subset defining by a function, eg. in case of use in a Subset Simulation algorithm. As for the \code{limit_state_function}, failure domain is defined by points whom values of \code{limit_fun_MH} are negative.}
   \item{sampling_strategy}{either "AR" or "MH", to specify which sampling strategy is to be used when generating Monte-Carlo population in a case of subset simulation : "AR" stands for \sQuote{accept-reject} while "MH" stands for Metropolis-Hastings.}
-  \item{seeds}{optional. If \code{sampling_strategy}=="MH", seeds from which starting the Metrepolis-Hastings algorithm. This should be a matrix with \sQuote{nrow} = \code{dimension} and \sQuote{ncol} = number of vector.}
+  \item{seeds}{optional. If \code{sampling_strategy}=="MH", seeds from which MH algorithm starts. This should be a matrix with \sQuote{nrow} = \code{dimension} and \sQuote{ncol} = number of vector.}
   \item{seeds_eval}{optional. The value of the \code{limit_fun_MH} on the \code{seeds}.}
   \item{burnin}{a burnin parameter for Metropolis-Hastings algorithm. This is used only for the last C step population while it is set to 0 elsewhere.}
   \item{thinning}{a thinning parameter for Metropolis-Hastings algorithm. This is used only for the last C step population while it is set to 0 elsewhere. \code{thinning} = 0 means no thinning.}
   \item{plot}{a boolean parameter specifying if function and samples should be plotted. The plot is refreshed at each iteration with the new data. Note that this option is only to be used when working on \sQuote{light} limit state functions as it requires the calculus of this function on a grid of size 161x161 (plot is done a -8:8 x -8:8 grid with 161 meshes.}
-  \item{limited_plot}{only a final plot with \code{limit_state_function}, final DOE and metamodel. Should be used with \code{plot}==FALSE. As for \code{plot} it requires the calculus of the \code{limit_state_function} on a grid of size 161x161.}
+  \item{limited_plot}{only a final plot with \code{limit_state_function}, final DOE and metamodel. Should be used with \code{plot}==FALSE.}
   \item{add}{optional. "TRUE" if plots are to be added to the current active device.}
   \item{output_dir}{optional. If plots are to be saved in .jpeg in a given directory. This variable will be pasted with "_SMART.jpeg" to get the full output directory.}
   \item{z_MH}{optional. For plots, if metamodel has already been evaluated on the grid then \code{z_MH} (from outer function) can be provided to avoid extra computational time.}
@@ -131,7 +131,10 @@ Furthermore, each time a set of vector is defined as a matrix, \sQuote{nrow} = \
 
 \examples{
 #Limit state function defined by Kiureghian & Dakessian :
-kiureghian = function(x, b=5, kappa=0.5, e=0.1) {b - x[2] - kappa*(x[1]-e)^2}
+kiureghian = function(x, b=5, kappa=0.5, e=0.1) {
+x = as.matrix(x)
+b - x[2,] - kappa*(x[1,]-e)^2
+}
 
 \dontrun{
 SMART_estim = SMART(dimension=2,limit_state_function=kiureghian,plot=TRUE)
@@ -139,12 +142,15 @@ MC_estim = MonteCarlo(2, kiureghian, N_max = 500000)
 }
 
 #Limit state function defined by Waarts :
-waarts = function(u) { min(
-		(3+(u[1]-u[2])^2/10 - (u[1]+u[2])/sqrt(2)),
+waarts = function(x) {
+x = as.matrix(x)
+apply(x, 2, function(u) {min(
+  	(3+(u[1]-u[2])^2/10 - (u[1]+u[2])/sqrt(2)),
 		(3+(u[1]-u[2])^2/10 + (u[1]+u[2])/sqrt(2)),
 		u[1]-u[2]+7/sqrt(2),
-		u[2]-u[1]+7/sqrt(2))
-	}
+		u[2]-u[1]+7/sqrt(2))})
+}
+
 \dontrun{
 SMART_estim = SMART(dimension=2,limit_state_function=waarts,plot=TRUE)
 MC_estim = MonteCarlo(2, waarts, N_max = 500000)
