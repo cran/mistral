@@ -1,64 +1,28 @@
-#-------------------------------------------------------------------------------------#
-#-------------------------------------FORM--------------------------------------------#
-#------------------------------------Method-------------------------------------------#
-#-------------------------------------------------------------------------------------#
-
-
-#-------------------------------------------------------------------------------------#
-# Input :                                                                             #
-#-------------------------------------------------------------------------------------#
-# f : failure fonction                    	                                          #
-# u.dep : a vector start of the algorithm for the research of the design point        #          
-# choice.law : a list which contains the name of the input to f and their parameters  #
-# Method : Choice of the method to the research of the design point :                 #
-#                                     "HLRF" or "AR" = Abdo-Rackwitz                  #
-# IS : "TRUE" for using importance Sampling method. Default ="FALSE"                  #
-# N.calls : Nombers of calls to f allowed                                             #
-# eps : stop criterion : distance of two points between two iterations                #
-# q : ratio of calls to f for the resarche of the design point                        #
-# 1-q : ratio of calls to f for the Importance Sampling                               #
-# copula : choice of the copula         		                                          #
-#-------------------------------------------------------------------------------------#
-
-#-------------------------------------------------------------------------------------#
-# Output :                                                                            #
-#-------------------------------------------------------------------------------------#
-# proba.def : failure probability                                                     #
-# indic.reliab : reliability index                                                    #
-# compt.f : Number of calls of f 	  			                                            #
-# Design.point : coordinates of the design point                                      #
-# fact.imp : importance factor                                                        #
-# variance : standard error of the estimator (if IS = TRUE)	                          #
-# Interval.conf : confidence interval at 95% (if IS = TRUE)                           #
-# DOE : list which contains the design of experiments. 	                              #
-#-------------------------------------------------------------------------------------#
-# Author: Vincent Moutoussamy and Bertrand Iooss                                      #
-
 #---------------------------------------------------------------------------------#
-#--------------------------------Algorithme FORM :--------------------------------#
+#--------------------------------Algorithm FORM :--------------------------------#
 #---------------------------------------------------------------------------------#
-
-FORM <- function(f, u.dep, choice.law, N.calls = 1e4, eps = 1e-7, 
+#' @export
+FORM <- function(f, u.dep, inputDistribution, N.calls, eps = 1e-7, 
                  Method = "HLRF", IS = FALSE, q = 0.5, copula = "unif"){
   
   # Few error messages : 
   if (mode(f) != "function") stop("f is not a function")
-  if( mode(choice.law) != "list") stop("choice.law is not a list")
-  if (missing(choice.law)) stop("choice.law is missing")
+  if( mode(inputDistribution) != "list") stop("inputDistribution is not a list")
+  if (missing(inputDistribution)) stop("inputDistribution is missing")
   if (missing(N.calls)) stop("N.calls is missing")
   
-  ndim <- length(choice.law)
+  ndim <- length(inputDistribution)
   
   #-------------------------------------------------------------------------------#
   #--------------- Create the list whith paramters of the input ------------------#
-  InputDistribution <- function(choice.law){
+  transformtionToInputSpace <- function(inputDistribution){
     
     InputDist <- list()
-    InputDist <- choice.law
+    InputDist <- inputDistribution
     
     for(i in 1:ndim){
       
-      nparam <- length(choice.law[[i]][[2]])
+      nparam <- length(inputDistribution[[i]][[2]])
       
       for(j in 1:nparam){
         InputDist[[i]]$q <- paste("q",InputDist[[i]][[1]], sep = "");
@@ -71,7 +35,7 @@ FORM <- function(f, u.dep, choice.law, N.calls = 1e4, eps = 1e-7,
     return(InputDist)
   }
   
-  InputDist <- InputDistribution(choice.law)
+  InputDist <- transformtionToInputSpace(inputDistribution)
   
   #------ Transformation to the gaussian space ------#
 

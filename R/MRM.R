@@ -1,51 +1,17 @@
-#-----------------------------------------------------------------------------------------------------------------#
-#
-#
-#
-#                                                  Algorithme MRM :
-#
-#
-#
-#-----------------------------------------------------------------------------------------------------------------#
+## -----------------------------------------------------------------------------
+## Fonction MRM
+## -----------------------------------------------------------------------------
+#' @export
+MRM <- function(f, inputDimension, inputDistribution, dir.monot, N.calls, Method, silent = FALSE){
 
 
-#-----------------------------------------------------------------------------------------------------------------#
-# Input :											    	    
-#-----------------------------------------------------------------------------------------------------------------#
-
-# f : Failure function.								    
-# ndim : Dimension of input
-# choice.law : a list of length "ndim" which contain name of input distribution and their parameters. For the input "i", choice.law[[i]] = list("name_law",c(parameters1,..., parametersN)  
-# dir.monot : vector of size "ndim" which represent the monotonicity of the failure function. dir.monot[i] = -1 (resp. 1) if the code is decreasing (resp. increasing) in direction i.
-# N.calls : Number of calls to f allowed
-# Method = there is two methods available. "MC_monotone" is an adapation of the Monte Carlo method under constraints of monotony. "MRM" is a sequential sampling method.
-# ordre.p : order of magnitude of the search probability (for ndim >= 3)
-# silent : if silent = TRUE, print curent number of call to f. Default: FALSE.
-#-----------------------------------------------------------------------------------------------------------------#
-#-----------------------------------------------------------------------------------------------------------------#
-# Output :	
-#-----------------------------------------------------------------------------------------------------------------#
-#Um: Exact lower bounds of the failure probability 
-#UM: Exact upper bounds of the failure probability 
-#MLE: Maximum likelihood estimator of the failure probability 
-#IC.inf: Lower bound of the confidence interval of the failure probability based on MLE
-#IC.sup: Upper bound of the confidence interval of the failure probability based on MLE
-#CV.MLE: Coefficient of variation of the MLE
-#N.tot: Total number of simulation (just for "MC_monotone")
-#-----------------------------------------------------------------------------------------------------------------#
-#-----------------------------------------------------------------------------------------------------------------#
-
-
-MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, silent = TRUE){
-
-
-  InputDistribution <- function(choice.law){
+  transformtionToInputSpace <- function(inputDistribution){
 
     InputDist <- list()
-    InputDist <- choice.law
+    InputDist <- inputDistribution
 
-    for(i in 1:ndim){
-      nparam <- length(choice.law[[i]][[2]])
+    for(i in 1:inputDimension){
+      nparam <- length(inputDistribution[[i]][[2]])
         for(j in 1:nparam){
           InputDist[[i]]$q <- paste("q", InputDist[[i]][[1]], sep = "");
           InputDist[[i]]$p <- paste("p", InputDist[[i]][[1]], sep = "");
@@ -56,24 +22,25 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
     InputDist
   }
 
-  InputDist <- InputDistribution(choice.law)
+  InputDist <- transformtionToInputSpace(inputDistribution)
 
 #-----------------------------------------------------------------------------------------------------------------#
 #	                           Transformation in the uniform space  
 #-----------------------------------------------------------------------------------------------------------------#
   G <- function(X){
     XU <- numeric()
-    for(i in 1:ndim){
+    for(i in 1:inputDimension){
       if(dir.monot[i] == -1){X[i] <- 1 - X[i]}
         XU[i] <- do.call(InputDist[[i]]$q,c(list(X[i, drop = FALSE]), InputDist[[i]][[2]]))
       }
     return(f(XU))
   }
+
 #-----------------------------------------------------------------------------------------------------------------#
 #                Initialisation of the method : a dichotomie on the Uniforme space
 #-----------------------------------------------------------------------------------------------------------------#
 
-  Intersect <- function(ndim, FUNC){
+  Intersect <- function(inputDimension, FUNC){
 
     a     <- 2
     k     <- 2
@@ -84,16 +51,16 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
     out   <- list()
     comp  <- 2
 
-    u.dep[[1]]  <- rep(1/2, ndim)
+    u.dep[[1]]  <- rep(1/2, inputDimension)
     temp        <- FUNC(u.dep[[1]])
     u.dep[[2]]  <- sign(temp)
-    cp 	        <- 1 						# compteur d'appel à G
+    cp 	        <- 1 						# compteur d'appel ? G
     u.other     <- u.dep
     u.new       <- u.dep[[1]]
     LIST        <- list()
     LIST[[1]]   <- u.dep
-    list.set    <- 0
-    list.set[1] <- LIST[[1]][2]
+    list.set    <- LIST[[1]][2]
+
 
     if(temp > 0){
       u.new <- u.dep[[1]] - 1/(a^k)
@@ -104,15 +71,14 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
     eps <- ( u.new - u.dep[[1]] )%*%( u.new - u.dep[[1]] )
 
     if( ( u.other[[2]] != sign(temp)) & (eps > 1e-7) ){
-      exist   <- exist + 1
       u.other <- list( u.dep[[1]], sign(temp) )
     }
 
     k          <- k + 1
     sign.0     <- sign(temp)
-    sign.other <- -sign.0
+    sign.other <- - sign.0
 
-    while(sign(temp) != sign.other){         #N.dicho définie en début de programme
+    while(sign(temp) != sign.other){         
  
       u.dep[[1]] <- u.new 
       temp       <- FUNC(u.dep[[1]])
@@ -169,25 +135,19 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
 #		   
 #-----------------------------------------------------------------------------------------------------------------#
 
-  is.dominant <- function(x, y, ndim, set){
-
-     if((set != 1)&(set != 2)){
-	 print("ERROR : set must to be equal to 1 or 2.")
-	 break()
-	} 
+  is.dominant <- function(x, y, inputDimension, set){
 
     dominant <- NULL;
 
-# If x is a vector
     if( is.null(dim(x)) ){
-	if(set == 2){
-          if ( sum(x >= y) == ndim ){
+	if(set == -1){
+          if ( sum(x >= y) == inputDimension ){
             return(TRUE)
           }else{
             return(FALSE)
           } 
         }else{
-          if( sum(x <= y) == ndim ){
+          if( sum(x <= y) == inputDimension ){
             return(TRUE)
           }else{
             return(FALSE)
@@ -198,12 +158,12 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
     y.1 <- NULL
     Y.2 <- NULL
     y.1 <- rep(y,dim(x)[1])
-    y.2 <- matrix(y.1, ncol = ndim, byrow = TRUE)
+    y.2 <- matrix(y.1, ncol = inputDimension, byrow = TRUE)
 
-    if(set == 2){
-      dominant <- apply(x >= y.2, 1, sum) == ndim
+    if(set == -1){
+      dominant <- apply(x >= y.2, 1, sum) == inputDimension
     }else{
-      dominant <- apply(x <= y.2, 1, sum) == ndim
+      dominant <- apply(x <= y.2, 1, sum) == inputDimension
     }
 
     return(dominant)
@@ -214,23 +174,25 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
 #-----------------------------------------------------------------------------------------------------------------#
 #		              Function which compute the exact bounds
 #-----------------------------------------------------------------------------------------------------------------#
+  
+  Volume.bounds <- function(S, set){ 
 
-  Volume.bounds <- function(X.MC, S, set){ 
-
-   if(set == 1){S <- 1 - S}
+   if(set == 1){
+     S <- 1 - S
+   }
+ 
  
     if(is.null(dim(S))){
       if(set == 1){
-        #return(prod(1 - S))
         return(1 - prod(S))
       }
-      if(set == 2){
+      if(set == -1){
         return(prod(S))
       }
     }
 
     DS <- dim(S)[1] 
-    if(ndim == 2){
+    if(inputDimension == 2){
       S    <- S[order(S[,1]),]
       res  <- diag(outer(S[,1], c(0,S[1:(DS - 1), 1]), "-"))
       res1 <- res%*%S[,2]
@@ -238,35 +200,12 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
       return(res1) 
     }
 
+   RES.VOL <- dominated_hypervolume(1 - t(S), rep(1, inputDimension))
 
-    MC.VOL <- 0
-    RES.VOL <- 0
-    MM <- dim(X.MC)[1]
-
-    for(i in 1:(DS-1)){
-      u     <- apply(S, MARGIN = 1, prod)
-      u.max <- which.max(u)
-      uu    <- S[u.max, ]
-
-      S     <- S[-u.max, ]
-      ss.1  <- is.dominant(X.MC, uu, ndim, 1)
-      ss.2  <- is.dominant(X.MC, uu, ndim, 2)
-
-      RES.VOL <- RES.VOL + sum(ss.1)
-
-      X.MC <- X.MC[which((ss.1 == 0)&(ss.2 == 0) ) , ]
-    }
-
-    uu <- S
     if(set == 1){
-      tt <- is.dominant(X.MC, uu, ndim, 2)
-      RES.VOL <- RES.VOL + sum(tt)
-      RES.VOL <- 1 - RES.VOL/MM
-    }else{
-      tt <- is.dominant(X.MC, uu, ndim, 1)
-      RES.VOL <- RES.VOL + sum(tt)
-      RES.VOL <- RES.VOL/MM
+      RES.VOL <- 1 - RES.VOL
     }
+
     return(RES.VOL) 
 
   }
@@ -288,13 +227,13 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
       temp <- S[which.max(aa), ]
       R <- rbind(R, temp)
       S <- S[-which.max(aa), ]
-      ss <- is.dominant(S, temp, ndim, -1)
+      ss <- is.dominant(S, temp, inputDimension, -1)
       if(!is.null(dim(S))){
         S <- S[which(ss == FALSE),]
       }else{
-        S <- matrix(S, ncol= ndim)
+        S <- matrix(S, ncol= inputDimension)
         S <- S[which(ss == FALSE), ]
-        R = rbind(R, S)
+        R <- rbind(R, S)
         if(set == 1){
           return(1 - R)
         }else{
@@ -319,13 +258,8 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
 #
 #
 #-----------------------------------------------------------------------------------------------------------------
-  Method.MC.monotone <- function(N.calls){ 
+  monteCarloMonotone <- function(N.calls){ 
 
-    if(ndim > 2){
-      UU <- runif(ndim*10^(ordre.p + 2))
-      UU <- matrix(UU, ncol=ndim, byrow = TRUE)
-      D.UU <- dim(UU)[1]
-    }
 
     NN    <- 0        #Number of call to f
     N.tot <- 0
@@ -334,14 +268,17 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
     Z.safe <- NULL
     Z.fail <- NULL
 
+    X <- NULL
+    Y <- NULL
+
     is.Call <- 0    
     while(NN < N.calls){
       if(silent == FALSE){
         if(N.tot%%100 == 0){print(NN);flush.console();}
       }
 
-      U <- runif(ndim)
-
+      U <- runif(inputDimension)
+      X <- rbind(X, U)
       N.tot <- N.tot + 1
 
       if( is.null(Z.safe)& is.null(Z.fail) ){
@@ -352,10 +289,11 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
       }
 
       if(is.null(Z.safe)&( !is.null(Z.fail)) ){
-        ttf <- is.dominant(Z.fail, U, ndim, set = 2)
+        ttf <- is.dominant(Z.fail, U, inputDimension, set = -1)
         if( sum(ttf) == 0 ){
           t.u <- G(U)
           NN  <- NN + 1
+
 
           is.Call[NN] <- N.tot          
         }else{
@@ -364,7 +302,7 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
       }
       
       if(!is.null(Z.safe) & is.null(Z.fail) ){       
-        tts <- is.dominant(Z.safe, U, ndim, set = 1)
+        tts <- is.dominant(Z.safe, U, inputDimension, set = 1)
         if(sum(tts) == 0){
           t.u <- G(U)
           NN  <- NN + 1
@@ -375,8 +313,8 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
       }
     
       if((!is.null(Z.safe)) &( !is.null(Z.fail)) ){      
-        ttf <- is.dominant(Z.fail, U, ndim, set = 2)       
-        tts <- is.dominant(Z.safe, U, ndim, set = 1)
+        ttf <- is.dominant(Z.fail, U, inputDimension, set = -1)       
+        tts <- is.dominant(Z.safe, U, inputDimension, set = 1)
         if( (sum(tts) == 0) & (sum(ttf) == 0) ){
           t.u <- G(U)
           NN  <- NN + 1
@@ -390,7 +328,9 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
         }
         
       }
-      
+
+      Y <- c(Y, t.u)
+
       if(t.u <= 0){
         Z.fail <- rbind(Z.fail, U)
         res    <- c(res, 1)
@@ -417,14 +357,14 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
       Um <- 0
     }else{
       ZF <- Frontier(Z.fail, -1)        
-      Um <- Volume.bounds(UU, ZF, -1)    
+      Um <- Volume.bounds(ZF, -1)    
     }
 
     if(is.null(Z.safe)){
       UM <-1
     }else{ 
-      ZS <- Frontier(Z.safe, set = 1) 
-      UM <- Volume.bounds(UU, ZS, 1)  
+      ZS <- Frontier(Z.safe, 1) 
+      UM <- Volume.bounds(ZS, 1)  
     }
     
     return(list(cbind(IC.inf, IC.inf, estimation_MC, CV_MC, Var_MC)[is.Call, ], Um, UM, N.tot))
@@ -446,10 +386,12 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
     }
 
 #-----------------------------------------------------------------------------------------------------------------
+#	   Convert an integer into a binary
+#-----------------------------------------------------------------------------------------------------------------
     as.binary <- function (x) { 
       base <- 2;
-      r <- numeric(ndim)
-      for (i in ndim:1){ 
+      r <- numeric(inputDimension)
+      for (i in inputDimension:1){ 
         r[i] <- x%%base 
 	  x  <- x%/%base
       } 
@@ -458,20 +400,20 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
 
 
 #-----------------------------------------------------------------------------------------------------------------
-#		                             To simulate 1 point uniformy aroud "x"
+#		                             One point is simulated around x
 #-----------------------------------------------------------------------------------------------------------------
     
     SIM <- function(x, W){
 
       B <- 0
-      # One split the space around "x" in (2^d - 1) set, and one compute the volume of each set
+      # The space in split into 2^inputDimension - 1 subsets then the volume of these subsets is computed
       B <- apply( matrix(W, ncol = 1), 
                   MARGIN = 1, 
                   function(v){
                     Z <- as.binary(v)
                     v <- 0
                     u <- 0
-                    for(j in 1:ndim){
+                    for(j in 1:inputDimension){
                       u[j] <- ifelse(Z[j] == 0, 1 - x[j], x[j])
                     }     
                     return(prod(u))  
@@ -481,21 +423,21 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
       B <- cumsum(B)
       U <- runif(1, 0, max(B))
 
-      #One set is choose randomly
+      # One of the subsets is chosen randomly according to its volume
       pos <- ifelse(U < B[1], 1, which.max(B[B <= U]) + 1)
 
       Z <- as.binary(W[pos])
       A <- 0
       
-      #One sample in that set
-      for(i in 1:ndim){
+      # One point is simulated in the chosen subset
+      for(i in 1:inputDimension){
         A[i] = ifelse(Z[i] == 0, runif(1, x[i], 1), runif(1, 0, x[i]))  
       }
       return(A)      
     }
 
 #-----------------------------------------------------------------------------------------------------------------
-#                   Sample CP points in the non dominated space
+#                   Simulation of CP points in the non-dominated set
 #-----------------------------------------------------------------------------------------------------------------
 
     Sim.non.dominated.space <- function(CP, Z.safe, Z.fail, W){
@@ -505,8 +447,8 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
       Y.temp1 <- Z.safe[which.max(Y.temp),]
       while(CP1 < CP){
         Y.temp2 <- SIM(Y.temp1, W)
-        tts1 <- is.dominant(Z.safe, Y.temp2, ndim, 1)
-        ttf1 <- is.dominant(Z.fail, Y.temp2, ndim, 2)
+        tts1 <- is.dominant(Z.safe, Y.temp2, inputDimension, 1)
+        ttf1 <- is.dominant(Z.fail, Y.temp2, inputDimension, -1)
         if( (sum(tts1) == 0 ) & ( sum(ttf1) == 0) ){
           Y <- rbind(Y,Y.temp2)
           CP1 <- CP1 + 1
@@ -515,31 +457,18 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
       return(Y)
     }
 
-#-----------------------------------------------------------------------------------------------------------------
+#-------------------------------------------
 #
+# 			mrmEstimation
 #
-#
-# 						            METHOD : MRM
-#
-#
-#
-#-----------------------------------------------------------------------------------------------------------------
+#-------------------------------------------
 
-  Choix.method.1.1 <- function(N.calls, H){
+  mrmEstimation <- function(N.calls, H){
 
-
-    #Create of the sample to compute the bounds
-    if(ndim > 2){
-      UU   <- runif(ndim*10^(ordre.p + 2))
-      UU   <- matrix(UU, ncol=ndim, byrow = TRUE)
-      D.UU <- dim(UU)[1]
-    }
-
-    if(ndim == 2){UU <- 0; D.UU <- 0}
-    
+   
     V <- list()
 
-    V <- Intersect(ndim, H)    
+    V <- Intersect(inputDimension, H)    
 
     list.set <- 0
     for(i in 1:length(V)){
@@ -555,8 +484,8 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
     u.other[[1]] <- V[[max(which(list.set == 1))]][[1]]
     u.other[[2]] <- V[[max(which(list.set == 1))]][[2]]
 
-    Z.fail <- t(as.matrix(u.dep[[1]]))
-    Z.safe <- t(as.matrix(u.other[[1]]))
+    Z.fail <- t(as.matrix(u.dep[[1]]))           #current failure points usefull in the non-dominated set 
+    Z.safe <- t(as.matrix(u.other[[1]]))         #current safety points usefull in the non-dominated set 
 
     cp     <- length(V)  
     
@@ -576,8 +505,10 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
     CV.MLE <- 0
     MLE    <- 0
 
-    ZS <- NULL
-    ZF <- NULL
+    p.hat <- 0
+
+    X <- NULL
+    Y <- NULL
 
     um <- prod(V[[cp]][[1]])
     uM <- 1 - prod(1 - V[[cp]][[1]])
@@ -585,26 +516,27 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
     j  <- 1
     Um <- um
     UM <- uM
-    W  <- 1:(2^(ndim) - 1)
+    W  <- 1:(2^(inputDimension) - 1)
 
     while(cp < N.calls){
       if(silent == FALSE){
-        print(paste("compteur =",cp));flush.console()
+        print(paste("Current number of runs =",cp));flush.console()
       }
       uu <-  Sim.non.dominated.space (1, Z.safe, Z.fail, W)
-#########################################################################
-#       Appel au code
-#########################################################################
+
       H.u <- H(uu)
       SIGN[j] <- (1-sign(H.u))/2
 
+      X <- rbind(X, uu)
+      Y <- c(Y, H.u)
+
       if(H.u > 0){
         Z.safe.old <- rbind(uu, Z.safe)
-        ss     <- is.dominant(Z.safe, uu, ndim, 2)
+        ss     <- is.dominant(Z.safe, uu, inputDimension, -1)
         Z.safe <- Z.safe[which(ss == FALSE), ]
         Z.safe <- rbind(uu, Z.safe)
 
-        vol <- Volume.bounds(UU,Z.safe, 1)
+        vol <- Volume.bounds(Z.safe, 1)
 
          Um[j+1] <- Um[j]
          if(vol >= UM[j]){
@@ -613,16 +545,15 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
            UM[j + 1] <- vol
          }
          CC <- ifelse(cp == N.calls, 1, 0)
-         ZS <- rbind(ZS, uu)
 
       }else{
         Z.fail.old <- rbind(uu, Z.fail)
 
-        ff     <- is.dominant(Z.fail, uu, ndim, 1)
+        ff     <- is.dominant(Z.fail, uu, inputDimension, 1)
         Z.fail <- Z.fail[which(ff == FALSE), ]
         Z.fail <- rbind(uu, Z.fail)
 
-        vol <- Volume.bounds(UU, Z.fail, 2)
+        vol <- Volume.bounds(Z.fail, -1)
 
         UM[j+1] <- UM[j]
         if(vol <= Um[j]){
@@ -631,7 +562,6 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
           Um[j+1] <- vol
         }
 
-        ZF <- rbind(ZF, uu)
       }
 
       cp <- cp + 1
@@ -653,12 +583,13 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
       ICsup[j]  <- MLE[j] + qnorm(1 - alpha/2)/sqrt(VAR + alpha/an) 
 
       CV.MLE[j] <- 100/(sqrt(VAR)*MLE[j])   
-
+      
+      p.hat[j] <- mean(Um[1:j] + (UM[1:j] - Um[1-j])*SIGN[1:j]  )
       j <- j + 1 
 
     } #end of "while cp < N.calls"
 
-    RR <- cbind(Um[1:(j-1)], UM[1:(j-1)], MLE[1:j-1], ICinf[1:(j-1)] , ICsup[1:(j-1)], CV.MLE[1:(j-1)])
+    RR <- list( cbind(Um[1:(j-1)], UM[1:(j-1)], MLE[1:j-1], ICinf[1:(j-1)] , ICsup[1:(j-1)], CV.MLE[1:(j-1)], p.hat[1:(j-1)]), X, Y)
     return(RR)
   }
 
@@ -686,12 +617,12 @@ MRM <- function(f, ndim, choice.law, dir.monot, N.calls, Method,  ordre.p = 0, s
 #
 #-----------------------------------------------------------------------------------------------------------------  
   if(Method == "MRM"){
-    RESULT <- Choix.method.1.1(N.calls, G)
+    RESULT <- mrmEstimation(N.calls, G)
   }
 
 
-  if(Method == "MC_monotone"){
-    RESULT <- Method.MC.monotone(N.calls)
+  if(Method == "MC"){
+    RESULT <- monteCarloMonotone(N.calls)
   }
 
   return(RESULT)

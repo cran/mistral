@@ -5,14 +5,17 @@
 ##    Developpement : C. WALTER
 ##    CEA
 ## -----------------------------------------------------------------------------
-
+#' @import e1071
+#' @import DiceKriging
+#' 
 trainModel = function(model=NULL,
                       kernel,
                       design,
                       response,
                       updesign=design,
                       upresponse=response,
-                      type,
+                      type="Kriging",
+                      optim.method = "BFGS",
                       cost=NA,
                       gamma=NA,
                       coef.trend) {
@@ -55,7 +58,7 @@ trainModel = function(model=NULL,
                                        response = response,
                                        covtype  = kernel,
                                        nugget.estim=TRUE,
-                                       optim.method = "gen"#, #control = list(max.generations = 30, print.level = 0),
+                                       optim.method = optim.method #, #control = list(max.generations = 30, print.level = 0),
                                        # estim.method = "LOO",
                                        # lower   = rep(0.01, dim(design)[2]),
                                        # upper   = rep(100.0, dim(design)[2])#,
@@ -69,7 +72,7 @@ trainModel = function(model=NULL,
                              coef.trend = coef.trend,
                              nugget.estim=TRUE,
                              optim.method = "gen"#, #control = list(max.generations = 30, print.level = 0),
-                             # estim.method = "LOO",
+#                              estim.method = "LOO",
   #                            lower   = rep(0.01, dim(design)[2]),
   #                            upper   = rep(100.0, dim(design)[2])#,
   #                            parinit = rep(0.5,   dim(design)[2])
@@ -98,8 +101,15 @@ trainModel = function(model=NULL,
 	}
 
 	limit.meta = limitFunction(model.new)
-	res = list(model=model.new,fun=limit.meta)
+	
+	
+	contour = function(x,y){
+	  grid = expand.grid(x=x, y=y)
+	  z_meta = limit.meta(t(grid))
+	  z_crit = abs(z_meta$mean)/z_meta$sd
+	  return(data.frame(grid, z = z_meta$mean, margin = z_crit))
+	}
+	
+	res = list(model=model.new,fun=limit.meta, contour=contour)
 	return(res)
-
 }
-

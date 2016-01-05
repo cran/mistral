@@ -12,19 +12,20 @@ Provide tools for structural reliability analysis (failure probability, quantile
  \tabular{lll}{
    Package: \tab mistral\cr
    Type: \tab Package\cr
-   Version: \tab 1.1-0
-   Date: \tab 2013-12-17\cr
+   Version: \tab 2.0.0
+   Date: \tab 2015-12-18\cr
    License: \tab CeCILL
   }
 This package provides tools for structural reliability analysis:
 \itemize{
-    \item Calculate failure probability with FORM method and importance sampling, compute the design point, give the importance factors.
+    \item Calculate failure probability with FORM method and importance sampling.
     \item Calculate failure probability with crude Monte Carlo method
     \item Calculate failure probability with Subset Simulation algorithm
     \item Calculate failure probability with Monotonic Reliability Methods (MRM)
     \item Calculate failure probability with metamodel based algorithms : AKMCS, SMART and MetaIS
     \item Calculate failure probability with a metamodel based Subset Simulation : S2MART
     \item Compute Wilks formula (minimal size of a sample to estimate quantile with a confidence level).
+    \item Calculate a quantile under monotonicity constraints
 }
 }
 
@@ -68,11 +69,11 @@ S.S. Wilks. Determination of Sample Sizes for Setting Tolerance Limits. Annals M
  distribution[[1]] = list("gamma",c(2,1))
  distribution[[2]] = list("gamma",c(3,1))
 
- func <- function(X){
+ f <- function(X){
    X[1]/sum(X) - qbeta((1e-5),2,3)
  }
 
- res.list <- FORM(func, u.dep = c(0,0.1), choice.law = distribution, 
+ res.list <- FORM(f, u.dep = c(0,0.1), inputDistribution = distribution, 
      N.calls = 1000, eps = 1e-7, Method = "HLRF", IS = "TRUE", 
      q = 0.1, copula = "unif")
 

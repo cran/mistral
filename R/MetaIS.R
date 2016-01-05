@@ -1,49 +1,221 @@
-## -----------------------------------------------------------------------------
-## Fonction MetaIS
-## -----------------------------------------------------------------------------
-##    Copyright (C) 2013
-##    Developpement : C. WALTER
-##    CEA
-## -----------------------------------------------------------------------------
+#' @title Metamodel based Impotance Sampling
+#' 
+#' @description Estimate failure probability by MetaIS method.
+#' 
+#' @author Clement WALTER \email{clement.walter@cea.fr}
+#' 
+#' @details
+#' MetaIS is an Important Sampling based probability estimator. It makes use of
+#' a kriging surogate to approximate the optimal density function, replacing the
+#' indicatrice by its kriging pendant, the probability of being in the failure
+#' domain. In this context, the normallizing constant of this quasi-optimal PDF
+#' is called the \sQuote{augmented failure probability} and the modified
+#' probability \sQuote{alpha}.
+#' 
+#' After a first uniform Design of Experiments, MetaIS uses an alpha
+#' Leave-One-Out criterion combined with a margin sampling strategy to refine
+#' a kriging-based metamodel. Samples are generated according to the weighted
+#' margin probability with Metropolis-Hastings algorithm and some are selected
+#' by clustering; the \code{N_seeds} are got from an accept-reject strategy on
+#' a standard population.
+#' 
+#' Once criterion is reached or maximum number of call done, the augmented
+#' failure probability is estimated with a crude Monte-Carlo. Then, a new
+#' population is generated according to the quasi-optimal instrumenal PDF;
+#' \code{burnin} and \code{thinning} are used here and alpha is evaluated.
+#' While the coefficient of variation of alpha estimate is greater than a
+#' given threshold and some computation spots still available (defined by
+#' \code{Ncall_max}) the estimate is refined with extra calculus.
+#' 
+#' The final probability is the product of p_epsilon and alpha, and final
+#' squared coefficient of variation is the sum of p_epsilon and alpha one's.
+#' 
+#' @return   An object of class \code{list} containing the failure probability
+#' and some more outputs as described below:
+#' \item{p}{The estimated failure probability.}
+#' \item{cov}{The coefficient of variation of the Monte-Carlo probability
+#' estimate.}
+#' \item{Ncall}{The total number of calls to the \code{lsf}.}
+#' \item{learn_db}{The final learning database, ie. all points where \code{lsf}
+#' has been calculated.}
+#' \item{lsf_value}{The value of the \code{lsf} on the learning database.}
+#' \item{meta_fun}{The metamodel approximation of the \code{lsf}. A call output
+#' is a list containing the value and the standard deviation.}
+#' \item{meta_model}{The final metamodel. An S4 object from \pkg{DiceKriging}.
+#' Note that the algorithm enforces the problem to be the estimation of
+#' P[lsf(X)<failure] and so using \sQuote{predict} with this object will
+#' return inverse values if \code{lower.tail==FALSE}; in this scope prefer
+#' using directly \code{meta_fun} which handle this possible issue.}
+#' \item{points}{Points in the failure domain according to the metamodel.}
+#' \item{meta_eval}{Evaluation of the metamodel on these points.}
+#' \item{z_meta}{If \code{plot}==TRUE, the evaluation of the metamodel on
+#' the plot grid.}
+#' 
+#' @note Problem is supposed to be defined in the standard space. If not,
+#' use \code{\link{UtoX}} to do so. Furthermore, each time a set of vector
+#' is defined as a matrix, \sQuote{nrow} = \code{dimension} and
+#' \sQuote{ncol} = number of vector to be consistent with \code{as.matrix}
+#' transformation of a vector.
+#' 
+#' Algorithm calls lsf(X) (where X is a matrix as defined previously) and
+#' expects a vector in return. This allows the user to optimise the computation
+#' of a batch of points, either by vectorial computation, or by the use of
+#' external codes (optimised C or C++ codes for example) and/or parallel
+#' computation; see examples in \link{MonteCarlo}.
+#' 
+#' @references
+#' \itemize{
+#'   \item
+#'   V. Dubourg:\cr
+#'   Meta-modeles adaptatifs pour l'analyse de fiabilite et l'optimisation sous
+#'   containte fiabiliste\cr
+#'   PhD Thesis, Universite Blaise Pascal - Clermont II,2011\cr
+#'   
+#'   \item
+#'   V. Dubourg, B. Sudret, F. Deheeger:\cr
+#'   Metamodel-based importance sampling for structural reliability analysis
+#'   Original Research Article\cr
+#'   Probabilistic Engineering Mechanics, Volume 33, July 2013, Pages 47-57\cr
+#'   
+#'   \item
+#'   V. Dubourg, B. Sudret:\cr
+#'   Metamodel-based importance sampling for reliability sensitivity analysis.\cr
+#'   Accepted for publication in Structural Safety, special issue in the honor
+#'   of Prof. Wilson Tang.(2013)\cr
+#'   
+#'   \item
+#'   V. Dubourg, B. Sudret and J.-M. Bourinet:\cr
+#'   Reliability-based design optimization using kriging surrogates and subset
+#'   simulation.\cr
+#'   Struct. Multidisc. Optim.(2011)\cr
+#' }
+#' 
+#' @seealso
+#' \code{\link{SubsetSimulation}}
+#' \code{\link{MonteCarlo}}
+#' \code{\link[DiceKriging]{km}} (in package \pkg{DiceKriging})
+#' 
+#' @examples 
+#' kiureghian = function(x, b=5, kappa=0.5, e=0.1) {
+#' x = as.matrix(x)
+#' b - x[2,] - kappa*(x[1,]-e)^2
+#' }
+#' 
+#' \donttest{res = MetaIS(dimension=2,lsf=kiureghian,plot=TRUE)
+#' 
+#' #Compare with crude Monte-Carlo reference value
+#' N = 500000
+#' U = matrix(rnorm(dimension*N),dimension,N)
+#' G = apply(U,2,kiureghian)
+#' P = mean(G<0)
+#' cov = sqrt((1-P)/(N*P))
+#' }
+#' 
+#' #See impact of kernel choice with Waarts function :
+#' waarts = function(u) {
+#'   u = as.matrix(u)
+#'   b1 = 3+(u[1,]-u[2,])^2/10 - sign(u[1,] + u[2,])*(u[1,]+u[2,])/sqrt(2)
+#'   b2 = sign(u[2,]-u[1,])*(u[1,]-u[2,])+7/sqrt(2)
+#'   val = apply(cbind(b1, b2), 1, min)
+#' }
+#' 
+#' \donttest{
+#' res = list()
+#' res$matern5_2 = MetaIS(2,waarts,plot=TRUE)
+#' res$matern3_2 = MetaIS(2,waarts,kernel="matern3_2",plot=TRUE)
+#' res$gaussian = MetaIS(2,waarts,kernel="gauss",plot=TRUE)
+#' res$exp = MetaIS(2,waarts,kernel="exp",plot=TRUE)
+#' 
+#' #Compare with crude Monte-Carlo reference value
+#' N = 500000
+#' U = matrix(rnorm(dimension*N),dimension,N)
+#' G = apply(U,2,waarts)
+#' P = mean(G<0)
+#' cov = sqrt((1-P)/(N*P))
+#' }
+#' 
+#' @import ggplot2
+#' @import DiceKriging
+#' @import Matrix
+#' @import mvtnorm
+#' @export
 
-MetaIS = function(dimension, limit_state_function,
-			## Algorithm parameters
-			N = 500000,             # size of Monte-Carlo population for P_epsilon estimate
-			N_alpha = 100,          # initial size of Monte-Carlo population for alpha estimate
-			N_DOE = 2*dimension,    # size of initial DOE got by clustering of the N1 samples
-			N1 = N_DOE*30,          # size of the initial uniform population sampled in a hypersphere of radius Ru
-			Ru = 8,                 # radius of the hypersphere for the initial sampling
-			Nmin = 30,              # minimum number of call for the construction step
-			Nmax = 200,             # maximum number of call for the construction step
-			Ncall_max = 1000,       # maximum number of call for the whole algorithm
-			precision = 0.05,       # desired maximal value of cov
-			N_seeds = 1,            # number of seeds for MH algoritm while generating into the margin (according to MP*gauss)
-			Niter_seed = 10000,     # maximum number of iteration for the research of a seed for alphaLOO refinement sampling
-			N_alphaLOO = 5000,      # number of points to sample at each refinement step
-			K_alphaLOO = 2*dimension, #number of clusters at each refinement step
-			alpha_int = c(0.1,10),  # range for alpha to stop construction step
-			k_margin = 1.96,        # margin width ; this means points are classified with more than 97,5%
-			## Subset parameters
-      learn_db  = NULL,       # Coordinates of alredy known points
-      lsf_value = NULL,       # Value of the LSF on these points
-      failure   = 0,          # Failure threshold
-      meta_model = NULL,      # Provide here a kriging metamodel from km if wanted     
-      kernel = "matern5_2",   # Specify the kernel to use for km
-      learn_each_train = FALSE,# Specify if kernel parameters are re-estimated at each train
-      limit_fun_MH = NULL,    # Define an area of exclusion with a limit function, eg in metaSS
-      sampling_strategy = "MH",# Either MH for Metropolis-Hastings of AR for accept-reject
-      seeds = NULL,           # If some points are already known to be in the appropriate subdomain, eg in metaSS
-      seeds_eval = NULL,      # Value of the metamodel on these points
-      burnin = 20,            # Burnin parameter for MH
-      thinning = 4,           # Thinning parameter for MH
-      ## plot parameter
-      plot = FALSE,           # Set to TRUE for a full plot, ie refresh at each iteration
-      limited_plot = FALSE,   # Set to TRUE for a final plot with final DOE, metamodel and LSF
-      add = FALSE,            # If plots are to be added to a current device
-      output_dir = NULL,      # If plots are to be saved in jpeg in a given directory
-      z_MH = NULL,            # For plots, if metamodel has already been evaluated on the grid
-      z_lsf = NULL,           # For plots, if LSF has already been evaluated on the grid
-      verbose = 0) {          # Either 0 for almost no output, 1 for medium size output and 2 for all outputs
+MetaIS = function(dimension,
+                  #' @param dimension of the input space
+                  lsf,
+                  #' @param lsf the failure defining the failure/safety domain
+            			## Algorithm parameters
+            			N = 500000,
+            			#' @param N size of the Monte-Carlo population for P_epsilon estimate
+            			N_alpha = 100,
+            			#' @param N_alpha initial size of the Monte-Carlo population for alpha estimate
+            			N_DOE = 10*dimension,
+            			#' @param N_DOE size of the initial DOE got by clustering of the N1 samples
+            			N1 = N_DOE*30,
+            			#' @param N1 size of the initial uniform population sampled in a hypersphere of radius Ru
+            			Ru = 8,
+            			#' @param Ru radius of the hypersphere for the initial sampling
+            			Nmin = 30, 
+            			#' @param Nmin minimum number of call for the construction step
+            			Nmax = 200,          
+            			#' @param Nmax maximum number of call for the construction step
+            			Ncall_max = 1000,     
+            			#' @param Ncall_max maximum number of call for the whole algorithm
+            			precision = 0.05,      
+            			#' @param precision desired maximal value of cov
+            			N_seeds = 2*dimension, 
+            			#' @param N_seeds number of seeds for MH algoritm while generating into the margin (
+            			#' according to MP*gauss)
+            			Niter_seed = 10000,     
+            			#' @param Niter_seed maximum number of iteration for the research of a seed for alphaLOO
+            			#' refinement sampling
+            			N_alphaLOO = 5000,      
+            			#' @param N_alphaLOO number of points to sample at each refinement step
+            			K_alphaLOO = 2*dimension, 
+            			#' @param K_alphaLOO number of clusters at each refinement step
+            			alpha_int = c(0.1,10),  
+            			#' @param alpha_int range for alpha to stop construction step
+            			k_margin = 1.96,        
+            			#' @param k_margin margin width; default value means that points are classified with more
+            			#' than 97,5\%
+            			lower.tail = TRUE,      
+            			#' @param lower.tail specify if one wants to estimate P[lsf(X)<failure] or P[lsf(X)>failure].
+            			## Subset parameters
+                  learn_db  = NULL,       
+            			#' @param learn_db Coordinates of alredy known points
+                  lsf_value = NULL,       
+            			#' @param lsf_value Value of the LSF on these points
+                  failure   = 0,          
+            			#' @param failure Failure threshold
+                  meta_model = NULL,      
+            			#' @param meta_model Provide here a kriging metamodel from km if wanted     
+                  kernel = "matern5_2",   
+            			#' @param kernel Specify the kernel to use for km
+                  learn_each_train = TRUE,
+            			#' @param learn_each_train Specify if kernel parameters are re-estimated at each train
+                  limit_fun_MH = NULL,    
+            			#' @param limit_fun_MH Define an area of exclusion with a limit function
+            			failure_MH = 0,         
+            			#' @param failure_MH Threshold for the limit_MH function
+                  sampling_strategy = "MH",
+            			#' @param sampling_strategy Either MH for Metropolis-Hastings of AR for accept-reject
+                  seeds = NULL,           
+            			#' @param seeds If some points are already known to be in the appropriate subdomain
+                  seeds_eval = limit_fun_MH(seeds), 
+            			#' @param seeds_eval Value of the metamodel on these points
+                  burnin = 20,            
+            			#' @param burnin Burnin parameter for MH
+                  ## plot parameter
+                  plot = FALSE,           
+            			#' @param plot Set to TRUE for a full plot, ie refresh at each iteration
+                  limited_plot = FALSE,   
+            			#' @param limited_plot Set to TRUE for a final plot with final DOE, metamodel and LSF
+                  add = FALSE,            
+            			#' @param add If plots are to be added to a current device
+                  output_dir = NULL,      
+            			#' @param output_dir If plots are to be saved in jpeg in a given directory
+                  verbose = 0) {          
+                  #' @param verbose Either 0 for almost no output, or 1 for medium size or 2 for all outputs
 
 
 cat("==========================================================================================\n")
@@ -57,50 +229,43 @@ cat("===========================================================================
 ## Init
 Ncall = 0
 cov_epsilon = Inf
-U = list(N=NULL,N1=NULL,N_DOE=NULL)
-G = list(N=NA*c(1:N),N_DOE=NULL,g=lsf_value)
-G_meta = list(N=NULL,N1=NULL)
-z_meta = NA;
 ITER = 0;
 
+# Fix NOTE issue with R CMD check
+x <- z <- ..level.. <- crit <- NULL
 
-## plotting part
-if(plot == TRUE || limited_plot == TRUE){
-	if(verbose>0){cat(" * 2D PLOT : SET-UP \n")}
-	x_plot = seq(-Ru,Ru,l=20*Ru+1)
-	y_plot = seq(-Ru,Ru,l=20*Ru+1)
-	z = rbind(rep(x_plot,length(y_plot)),sort(rep(y_plot,length(x_plot))))
-	z_lsf = outer(x_plot,y_plot,function(x,y){z = cbind(x,y); 
-                                              apply(z,1,limit_state_function)})
-	if(add==FALSE) {
-		if(is.null(output_dir)) {dev.new("x11",title="MetaIS")}
-		else{
-			fileDir = paste(output_dir,"_MetaIS.jpeg",sep="")
-			jpeg(fileDir)
-		}
-		par(pty="s")
-		plot(x_plot,y_plot,type="n")
-	}
+if(lower.tail==FALSE){
+  lsf_dec = lsf
+  lsf = function(x) -1*lsf_dec(x)
+  failure <- -failure
+}
+
+# plotting part
+if(plot==TRUE){
+  
+  if(!is.null(output_dir)) {
+    fileDir = paste(output_dir,"_Meta_IS.pdf",sep="")
+    pdf(fileDir)
+  }
+  xplot <- yplot <- seq(-Ru, Ru, l = 20*Ru)
+  df_plot = data.frame(expand.grid(x=xplot, y=yplot), z = lsf(t(expand.grid(x=xplot, y=yplot))))
+  p <- ggplot(data = df_plot, aes(x,y)) +
+    geom_contour(aes(z=z, colour = ..level..), breaks = failure) +
+    theme(legend.position = "none") +
+    xlim(-8, 8) + ylim(-8, 8)
+  
+  if(!is.null(learn_db)){
+    row.names(learn_db) <- rep(c('x', 'y'), length.out= dimension)
+    p <- p + geom_point(data = data.frame(t(learn_db), z = lsf_value), aes(color=z))
+  }
+  if(!is.null(limit_fun_MH)) {
+    df_plot_MH = data.frame(expand.grid(x=xplot, y=yplot), z = limit_fun_MH(t(expand.grid(x=xplot, y=yplot))))
+    p <- p + geom_contour(data = df_plot_MH, aes(z=z, colour=..level..), breaks = failure_MH)
+  }
+  print(p)
 }
 	
-while(cov_epsilon > precision){
-
-	if(plot == TRUE){
-	  if(verbose>0){cat(" * 2D PLOT \n")}
-		if(is.null(limit_fun_MH)) {
-			symbols(0,0, circles=Ru, inches=F, add=TRUE, lty=2)
-		}
-		else {
-			if(is.null(z_MH)) {z_MH = outer(x_plot,y_plot,function(x,y){z = cbind(x,y); 
-								    z=t(z);limit_fun_MH(z)$mean})}
-			contour(x_plot,y_plot,z_MH,
-		level=0,labels="Subset limit",method="edge",add=TRUE)
-		}
-		tryCatch(points(learn_db[1,],learn_db[2,],col=2,pch=3))
-		contour(x_plot,y_plot,z_lsf,
-	    level=failure,labels=paste("LSF=",failure,sep=""),method="edge",add=TRUE)
-	}
-
+# while(cov_epsilon > precision){
 
 	cat("\n A- REFINEMENT OF PROBABILISTIC CLASSIFICATION FUNCTION PI \n")
 	cat("    ======================================================== \n\n")
@@ -111,35 +276,36 @@ while(cov_epsilon > precision){
 
 	if(N_DOE>0){
 	  if(verbose>0){cat(" * Generate N1 =",N1,"samples uniformly distributed in a hypersphere of radius Ru =",Ru,"\n")}
-		U$N1 = runifSphere(dimension,N1,radius=Ru)
+		U = runifSphere(dimension,N1,radius=Ru)
 
 	  if(verbose>0){cat(" * Get N_DOE =",N_DOE,"points by clustering of the N1 =",N1,"points\n")}
 		if(!is.null(limit_fun_MH)) {
-			ind = limit_fun_MH(U$N1)$mean #in a Subset algorithm, select points in Fi-1
-			prop = sum(ind<0)/N1 #get accept-reject proportion
-			U$N1 = runifSphere(dimension,ceiling(N1/prop),radius=Ru) #generate more points to take AR proportion into account
-			ind = limit_fun_MH(U$N1)$mean
-			U$N1 = U$N1[,ind<0] #finally get ~N1 points uniformly distributed in the subdomain Fi-1
+			ind = limit_fun_MH(U$N1) #in a Subset algorithm, select points in Fi-1
+			prop = sum(ind<failure_MH)/N1 #get accept-reject proportion
+			U = runifSphere(dimension,ceiling(N1/prop),radius=Ru) #generate more points to take AR proportion into account
+			ind = limit_fun_MH(U)
+			U = U[,ind<failure_MH] #finally get ~N1 points uniformly distributed in the subdomain Fi-1
 		}
-		U$N_DOE = t(kmeans(t(U$N1), centers=N_DOE,iter.max=20)$centers)
+		DoE = t(kmeans(U, centers=N_DOE,iter.max=20)$centers)
+		rm(U)
 		
 	  if(verbose>0){cat(" * Assessment of performance function G on these points\n")}
-		G$N_DOE = limit_state_function(U$N_DOE);Ncall = Ncall + N_DOE
+		lsf_DoE = lsf(DoE);Ncall = Ncall + N_DOE
 	
 	  if(verbose>0){cat(" * Add points to the learning database\n")}
 		if(is.null(learn_db)){
-			learn_db = U$N_DOE
-			G$g = G$N_DOE
+		  learn_db = array(DoE, dim = dim(DoE), dimnames = list(rep(c('x', 'y'), length.out = dimension)))
+			lsf_value = lsf_DoE
 		}
 		else{
-			learn_db = cbind(learn_db,U$N_DOE)
-			G$g = c(G$g,G$N_DOE)
+			learn_db = cbind(learn_db,DoE)
+			lsf_value = c(lsf_value, lsf_DoE)
 		}
 
 		if(plot==TRUE){
-		  if(verbose>0){cat(" * 2D PLOT : FIRST DoE \n")}
-			points(U$N1[1,],U$N1[2,],col=4)
-			points(U$N_DOE[1,],U$N_DOE[2,],pch=3,col=2)
+		  if(verbose>0){cat(" * 2D PLOT : First DoE \n")}
+		  p <- p + geom_point(data = data.frame(t(learn_db), z = lsf_value), aes(color=z))
+		  print(p)
 		}
 	}
 
@@ -147,15 +313,15 @@ while(cov_epsilon > precision){
 	if(is.null(meta_model) || learn_each_train==TRUE) {
 	  if(verbose>1){cat("   - Learn hyperparameters !!! \n")}
 		meta = trainModel(design=learn_db,
-		      response=(G$g-failure),
+		      response=lsf_value,
 		      kernel=kernel,
 		      type="Kriging")
 	}
 	else {
 	  if(verbose>1){cat("   - Use previous hyperparameters !!! \n")}
 		meta = trainModel(meta_model,
-		      updesign=U$N_DOE,
-		      upresponse=(G$N_DOE-failure),
+		      updesign=DoE,
+		      upresponse=lsf_DoE,
 		      type="Kriging")
 	}
 	
@@ -165,44 +331,36 @@ while(cov_epsilon > precision){
 	MP = function(x,k=k_margin) {
 		x = as.matrix(x)
 		G_meta = meta_fun(x)
-		res = pnorm((k*G_meta$sd - G_meta$mean)/G_meta$sd) - pnorm(-(k*G_meta$sd + G_meta$mean)/G_meta$sd)
+		res = pnorm((failure + k*G_meta$sd - G_meta$mean)/G_meta$sd) - pnorm((failure - k*G_meta$sd - G_meta$mean)/G_meta$sd)
 		return(res)
 	}
 	wMP = function(x) {
 		x = as.matrix(x)
-		MP(x)*apply(x,2,function(u) {exp(-0.5*t(u)%*%u)})
+		MP(x)*exp(-0.5*rep(1,dim(x)[1])%*%x^2)
 	}
 	pi = function(x) {
 		x = as.matrix(x)
 		G_meta = meta_fun(x)
-		pnorm(-G_meta$mean/G_meta$sd)
+		pnorm((failure-G_meta$mean)/G_meta$sd)
 	}
-
+	
 	#plotting part
-	if(plot==TRUE){
-	  if(verbose>0){cat(" * 2D PLOT \n")}
-		z_meta = meta_fun(z)
-		z_meta$mean = matrix(z_meta$mean,length(x_plot),length(y_plot))
-		z_meta$sd = matrix(z_meta$sd,length(x_plot),length(y_plot))
-		z_crit = abs(z_meta$mean)/z_meta$sd
-		contour(x_plot,y_plot,z_meta$mean,
-	    level=0,labels="Metamodel",method="edge",add=TRUE,col=4)
-		contour(x_plot,y_plot,z_crit,
-	    level=k_margin,labels=paste("-",k_margin,sep=""),
-	    method="edge",lty="dashed",add=TRUE,col=4)
-		contour(x_plot,y_plot,z_crit,
-	    level=-k_margin,labels=paste("+",k_margin,sep=""),
-	    method="edge",lty="dashed",add=TRUE,col=4)
+	if(plot == TRUE){
+	  if(verbose>0){cat(" * 2D PLOT : FIRST APPROXIMATED LSF USING KRIGING \n")}
+	  z_meta = meta_fun(t(df_plot[,1:2]))
+	  df_plot_meta <- data.frame(df_plot[,1:2], z = z_meta$mean, crit = abs(failure - z_meta$mean)/z_meta$sd)
+	  print(p_meta <- p + geom_contour(data = df_plot_meta, aes(z=z, color=..level..), breaks = failure) +
+	          geom_contour(data = df_plot_meta, aes(z=crit, color=..level..), linetype = 4, breaks = k_margin))
 	}
 
 	k = 0;
 	Nmax = min(Nmax,Ncall_max - N_alpha);
 	if(verbose>0){cat(" * Calculate alphaLOO \n")}
 	LOO = leaveOneOut.km(meta_model, type="UK", trend.reestim=FALSE)
-	piLOO = pnorm(-LOO$mean/LOO$sd)
+	piLOO = pnorm((failure-LOO$mean)/LOO$sd)
 	notNull = piLOO>(10^(-16))
 	if(verbose>1){cat("   -",sum(piLOO<10^(-16)),"samples not considered as pi<10^-16\n")}
-	alphaLOO = mean(1*(G$g[notNull]<failure)/piLOO[notNull])
+	alphaLOO = mean(1*(lsf_value[notNull]<failure)/piLOO[notNull])
 	if(verbose>1){cat("   - alphaLOO =",alphaLOO,"\n")}
 	criterion = (alpha_int[1]<alphaLOO)*(alphaLOO<alpha_int[2])*(k>=Nmin) + (k>Nmax)
 
@@ -216,7 +374,7 @@ while(cov_epsilon > precision){
 	  if(verbose>0){cat(" * Find seeds using accept-reject strategy on a standard population\n")}
 		n     = 0;
 		niter = 0;
-		candidate = matrix(NA,dimension,N_seeds)
+		candidate = matrix(NA,dimension,N_seeds, dimnames = list(rep(c('x', 'y'), length.out = dimension)))
 		while(n<N_seeds && niter<=Niter_seed) {
 			niter = niter + 1
 			missing_seeds = N_seeds - n
@@ -229,29 +387,29 @@ while(cov_epsilon > precision){
 		}
 		if(niter>Niter_seed && n<N_seeds){
 			criterion = TRUE;
-			if(verbose>1){cat("   - No seed found in",niter,"iterations, end of refinement step\n")}
+			if(verbose>1){cat("   - Only",n,"seeds found in",niter,"iterations, end of refinement step\n")}
 		}
 		else{
 		  if(verbose>1){cat("   -",n,"seed(s) founded after",niter,"iterations\n")}
-
-			#plotting part
-			if(plot==TRUE){
-			  if(verbose>0){cat(" * 2D PLOT \n")}
-				points(candidate[1,],candidate[2,],col=4)
-			}
-
 		  if(verbose>0){cat(" * Generate N_alphaLOO =",N_alphaLOO,"samples with the weighted margin probability\n")}
-			gen_pop = generateWithlrmM(seeds=candidate,
-				    N=N_alphaLOO,
-				    p=wMP,
-				    modified=FALSE,
-				    burnin=0,thinning=0)
-			candidate = gen_pop$points
+		  
+			candidate = do.call(cbind, lapply(1:N_alphaLOO, function(iter){
+			    W = array(rnorm(candidate), dim = dim(candidate))
+			    sigma = apply(candidate, 1, sd)*2
+			    y = candidate + sigma*W
+			    ratio = wMP(y)/wMP(candidate)
+			    sel = ratio>runif(ratio)
+			    candidate[,sel] <<- y[,sel]
+			    candidate
+			}))
 
 			#plotting part
 			if(plot==TRUE){
 			  if(verbose>0){cat(" * 2D PLOT \n")}
-				points(candidate[1,],candidate[2,],col=4)
+			  print(p_meta +
+			          stat_bin2d(data = as.data.frame(t(candidate)), bins = 20*Ru) +
+			          scale_fill_gradientn(colours = rainbow(4))
+			        )
 			}
 
 		  if(verbose>0){cat(" * Get K_alphaLOO =",K_alphaLOO,"points by clustering\n")}
@@ -263,83 +421,56 @@ while(cov_epsilon > precision){
 							return(res)
 						})
 
+			#plotting part
+			if(plot==TRUE){
+			  if(verbose>0){cat(" * 2D PLOT \n")}
+			  print(p_meta + geom_point(data = as.data.frame(t(candidate)), color = "red", size = 4) )
+			}
+			
 		  if(verbose>0){cat(" * Calculate performance function G on candidates\n")}
-			eval = limit_state_function(candidate);Ncall = Ncall + K_alphaLOO
+			eval = lsf(candidate);Ncall = Ncall + dim(candidate)[2]
 
 		  if(verbose>0){cat(" * Add points to he learning database\n")}
 			learn_db = cbind(learn_db,candidate)
-			G$g = c(G$g,eval)
+			lsf_value = c(lsf_value,eval)
 
 		  if(verbose>0){cat(" * Train the model\n")}
 			if(learn_each_train==TRUE) {
 			  if(verbose>1){cat("   - Learn hyperparameters\n")}
 				meta = trainModel(design=learn_db,
-						  response=(G$g-failure),
+						  response=lsf_value,
 						  kernel=kernel,type="Kriging")
 			}
 			else {
 			  if(verbose>1){cat("   - Use previous hyperparameters\n")}
 				meta = trainModel(meta_model,
 						  updesign=candidate,
-						  upresponse=(eval-failure),type="Kriging")
+						  upresponse=eval,type="Kriging")
 			}
 
 		  if(verbose>0){cat("\n * UPDATE quantities based on kriging surrogate model : MP, wMP, pi\n")}
 			meta_model = meta$model
 			meta_fun = meta$fun
-			MP = function(x,k=k_margin) {
-				x = as.matrix(x)
-				G_meta = meta_fun(x)
-				res = pnorm((k*G_meta$sd - G_meta$mean)/G_meta$sd) - pnorm(-(k*G_meta$sd + G_meta$mean)/G_meta$sd)
-				return(res)
-			}
-			wMP = function(x) {
-				x = as.matrix(x)
-				MP(x)*apply(x,2,function(u){exp(-0.5*t(u)%*%u)})
-			}
-			pi = function(x) {
-				x = as.matrix(x)
-				G_meta = meta_fun(x)
-				pnorm(-G_meta$mean/G_meta$sd)
-			}
 
 			k = k + K_alphaLOO
-		  if(verbose>0){cat(" * Calculate alphaLOO\n")}
-			LOO = leaveOneOut.km(meta_model, type="UK", trend.reestim=FALSE)
-			piLOO = pnorm(-LOO$mean/LOO$sd)
-			notNull = piLOO>(10^(-16))
-		  if(verbose>1){cat("   -",sum(piLOO<10^(-16)),"samples not considered as pi<10^-16\n")}
-			alphaLOO = mean(1*(G$g[notNull]<failure)/piLOO[notNull])
-		  if(verbose>1){cat("   - alphaLOO =",alphaLOO,"\n")}
-
-			criterion = (alpha_int[1]<alphaLOO)*(alphaLOO<alpha_int[2])*(k>=Nmin) + (k>Nmax)
 	
+			if(verbose>0){cat(" * Calculate alphaLOO \n")}
+			LOO = leaveOneOut.km(meta_model, type="UK", trend.reestim=FALSE)
+			piLOO = pnorm((failure-LOO$mean)/LOO$sd)
+			notNull = piLOO>(10^(-16))
+			if(verbose>1){cat("   -",sum(piLOO<10^(-16)),"samples not considered as pi<10^-16\n")}
+			alphaLOO = mean(1*(lsf_value[notNull]<failure)/piLOO[notNull])
+			if(verbose>1){cat("   - alphaLOO =",alphaLOO,"\n")}
+			criterion = (alpha_int[1]<alphaLOO)*(alphaLOO<alpha_int[2])*(k>=Nmin) + (k>Nmax)
+			
 			#plotting part
 			if(plot==TRUE | (limited_plot && criterion) ){
 			  if(verbose>0){cat(" * 2D PLOT \n")}
-				z_meta = meta_fun(z)
-				z_meta$mean = matrix(z_meta$mean,length(x_plot),length(y_plot))
-				z_meta$sd = matrix(z_meta$sd,length(x_plot),length(y_plot))
-				z_crit = abs(z_meta$mean)/z_meta$sd
-				contour(x_plot,y_plot,z_meta$mean,
-					level=0,labels="Metamodel",
-					method="edge",add=FALSE,col=4)
-				contour(x_plot,y_plot,z_crit,
-					level=k_margin,labels=paste("-",k_margin,sep=""),
-					method="edge",lty="dashed",add=TRUE,col=4)
-				contour(x_plot,y_plot,z_crit,
-					level=-k_margin,labels=paste("+",k_margin,sep=""),
-					method="edge",lty="dashed",add=TRUE,col=4)
-				contour(x_plot,y_plot,z_lsf,
-					level=failure,labels=paste("LSF=",failure,sep=""),
-					method="edge",add=TRUE)
-				if(is.null(seeds)) {
-					symbols(0,0,circles=Ru,inches=F,add=TRUE, lty=3)
-				}
-				else {contour(x_plot,y_plot,z_MH,
-					      level=0,labels="Subset limit",
-					      method="edge",add=TRUE)}
-				points(learn_db[1,],learn_db[2,],col=2,pch=3)
+        p <- p + geom_point(data = data.frame(t(learn_db), z = lsf_value), aes(color=z))
+        z_meta = meta_fun(t(df_plot[,1:2]))
+        df_plot_meta <- data.frame(df_plot[,1:2], z = z_meta$mean, crit = abs(failure - z_meta$mean)/z_meta$sd)
+        print(p_meta <- p + geom_contour(data = df_plot_meta, aes(z=z, color=..level.., alpha = 0.5), breaks = failure) +
+                geom_contour(data = df_plot_meta, aes(z=crit, color=..level.., alpha = 0.5), linetype = 4, breaks = k_margin))
 			}
 		}
 	}
@@ -348,54 +479,67 @@ while(cov_epsilon > precision){
 	cat("    =========================================================== \n\n")
 
 	if(!is.null(limit_fun_MH)){
-		if(sampling_strategy=="MH"){
-		  if(verbose>0){cat(" * Generate Monte-Carlo population with Metropolis-Hastings algorithm\n")}
-			gen_pop = generateWithlrmM(seeds=seeds,N=N,limit_f=limit_fun_MH,burnin=burnin,thinning=thinning,VA_function=pi)
-			U$N = gen_pop$points
-			Ind = gen_pop$VA_values
-			P_epsilon = gen_pop$est
-			MC_var = gen_pop$var
-			cov_epsilon = gen_pop$delta
-			MC_gamma = gen_pop$gamma
-		}
+	  if(sampling_strategy=="MH"){
+	    if(verbose>0){cat(" * Generate N =",N,"points from",dim(seeds)[2],"seeds with Metropolis-Hastings algorithm\n")}
+	    
+	    K = function(x){
+	      W = array(rnorm(x), dim = dim(x))
+	      sigma = apply(x, 1, sd)*2
+	      y = (x + sigma*W)/sqrt(1 + sigma^2)
+	      return(y)
+	    }
+	    
+	    seed <- sample.int(n = length(seeds_eval), size = N, replace = TRUE)
+	    U <- seeds[,seed]
+	    U_eval <- seeds_eval[seed]
+	    
+	    replicate(burnin, {
+	      U_star <- K(U)
+	      U_eval_star <- limit_fun_MH(U_star)
+	      indU_star <- U_eval_star<failure_MH
+	      U[,indU_star] <<- U_star[,indU_star]
+	      U_eval[indU_star] <<- U_eval_star[indU_star]
+	    })
+	    rm(U_eval)
+	  }
+	  
 		else{
 		  if(verbose>0){cat(" * Generate Monte-Carlo population with an accept-reject strategy on a standard gaussian sampling\n")}
-			rand = function(dimension,N) {matrix(rnorm(dimension*N),dimension,N)}
-			U$N = generateWithAR(N,dimension,limit_f=limit_fun_MH,rand=rand)
+		  rand = function(dimension,N) {matrix(rnorm(dimension*N),dimension,N)}
+		  U = generateWithAR(dimension=dimension,
+		                     N=N,
+		                     limit_f=limit_fun_MH,
+		                     failure=failure_MH,
+		                     rand=rand)
 
 		  if(verbose>0){cat(" * Calculate Monte-Carlo estimate\n")}
-			Ind = pi(U$N)
+			Ind = pi(U)
 			P_epsilon <- MC_est <- mean(Ind)
 			VA_var = var(Ind)
 			MC_var = VA_var/N
 			cov_epsilon = sqrt(MC_var)/MC_est
-			MC_gamma = 0
 		}
 	}
 	else{
 	  if(verbose>0){cat(" * Generate standard gaussian samples\n")}
-		U$N = matrix(rnorm(dimension*N),dimension,N)
+		U = matrix(rnorm(dimension*N),dimension,N)
 	  if(verbose>0){cat(" * Calculate Monte-Carlo estimate\n")}
-		Ind = pi(U$N)
+		Ind = pi(U)
 		P_epsilon <- MC_est <- mean(Ind)
 		VA_var = var(Ind)
 		MC_var = VA_var/N
 		cov_epsilon = sqrt(MC_var)/MC_est
-		MC_gamma = 0
 	}
 
-	G_meta$N = meta_fun(U$N)$mean
-	fail_points = (G_meta$N<0)
-	points=U$N[,fail_points]
-	meta_eval=G_meta$N[fail_points]
+	points=U[,Ind>0.5]
 	cat(" P_epsilon =",P_epsilon,"\n")
 	cat(" cov_epsilon =",cov_epsilon,"\n")
 
 	if(cov_epsilon>precision) {
-		N = ceiling((1+MC_gamma)*VA_var/(precision^2*MC_est^2))
+		N = ceiling(VA_var/(precision^2*MC_est^2))
 		cat(" * cov_epsilon too large ; this order of magnitude for the probabilty brings N =",N,"\n")
 	}
-}
+# }
 
 
 #Adaptative importance sampling scheme
@@ -406,38 +550,45 @@ cat("\n=========================================================================
 if(verbose>0){cat(" * Define h PDF \n")}
 	h = function(x) {
 		x = as.matrix(x)
-		res = pi(x)*apply(x,2,function(u) {prod(dnorm(u))})/P_epsilon
+		res = pi(x)*dmvnorm(t(x))/P_epsilon
 		return(res)
 	}
 
 if(verbose>0){cat(" * Generate samples according to h with Metropolis-Hastings and calculate MC estimator\n")}
-if(verbose>1){cat("   - Calculate approximated optimal density on the learning database\n")}
-	h_learn_db = h(learn_db)
-	
-if(verbose>1){cat("   - Find samples whose value is > 0\n")}
-	if(dim(learn_db[,h_learn_db>0])[2]>0) {
-	  if(verbose>1){cat("     ? seeds =",dim(as.matrix(learn_db[,h_learn_db>0]))[2],"samples in learn_db | h > 0\n")}
-		seeds_alpha = learn_db[,h_learn_db>0]
-	}
-	else{
-	  if(verbose>1){cat("     ? No samples in learn_db | h > 0 \n")}
-	  if(verbose>0){cat("       => Calculate quasi-optimal density fonction on previous Monte-Carlo population\n")}
-		h_U = h(U$N)
-		cat("     ? Select points | h > 0\n")
-		seeds_alpha = U$N[,h_U>0]
-	}
 	N_alpha_max = Ncall_max - Ncall
+  if(verbose>1){cat("   - Calculate approximated optimal density on the learning database\n")}
+	h_learn_db = h(learn_db)
+	if(verbose>1){cat("   - Find samples whose value is > 0\n")}
+	if(verbose>1){cat("     ? seeds =",sum(h_learn_db>0),"samples in learn_db | h > 0\n")}
+	if(verbose>0){cat("   - Calculate quasi-optimal density fonction on previous Monte-Carlo population\n")}
+	h_U = h(U)
+	if(verbose>1){cat("     ? seeds =",sum(h_U>0),"samples in MC pop | h > 0\n")}
+	h_U = head(order(h_U, decreasing = TRUE), N_alpha_max - sum(h_learn_db>0))
+	U = cbind(as.matrix(learn_db[,h_learn_db>0]),as.matrix(U[,h_U]))
 
-if(verbose>1){cat("   - Generate N_alpha_max =",N_alpha_max,"points from",dim(seeds_alpha)[2],"seeds with r-mM algorithm\n")}
-	gen_pop = generateWithlrmM(seeds=seeds_alpha,N=N_alpha_max,p=h,modified=FALSE)
-	U$N_alpha_max = gen_pop$points
-	inDB = FindInDatabase(mat=U$N_alpha_max,db=learn_db)
-	G$N_alpha_max = c(1:N_alpha_max)*NA
-	G$N_alpha_max[!is.na(inDB)] = G$g[inDB[!is.na(inDB)]]
+if(verbose>1){cat("   - Generate N_alpha_max =",N_alpha_max,"points from",dim(U)[2],"seeds with MH\n")}
+	# U = do.call(cbind, lapply(1:(ceiling(N_alphaLOO/dim(U)[2])*burnin), function(iter){
+	 replicate(burnin, { 
+	  W = array(rnorm(U), dim = dim(U))
+	  sigma = apply(U, 1, sd)
+	  y = U + sigma*W
+	  ratio = h(y)/h(U)
+	  sel = ratio>runif(ratio)
+	  U[,sel] <<- y[,sel]
+	 })
+	# })[c(1:ceiling(N_alphaLOO/dim(U)[2]))*burnin])
+	
+	inDB = which(duplicated(cbind(U, learn_db))) - dim(U)[2]
+	U = unique(cbind(learn_db[,inDB], U), M = 2)
+	G = lsf_value[inDB]
 
 	if(plot==TRUE) {
 	  if(verbose>1){cat("   - 2D PLOT \n")}
-		points(U$N_alpha_max[1,],U$N_alpha_max[2,],pch=8,col=3)
+	  row.names(U) = rep(c('x', 'y'), ceiling(dimension/2))[1:dimension]
+	  print(p_meta + 
+	          stat_bin2d(data = as.data.frame(t(U)), bins = 20*Ru) +
+	          scale_fill_gradientn(colours = rainbow(4))
+	  )
 	}
 
 	cov_alpha = Inf
@@ -446,19 +597,17 @@ if(verbose>1){cat("   - Generate N_alpha_max =",N_alpha_max,"points from",dim(se
 	  if(verbose>1){cat("     ? Select randomly N_alpha = ",N_alpha," in the working population\n")}
 		indices = tryCatch(c(indices,sample(c(1:N_alpha_max)[-indices],(N_alpha-length(indices)),replace=F)),
 				error=function(cond) {return(sample(c(1:N_alpha_max),N_alpha,replace=F))})
-		U$Nalpha = U$N_alpha_max[,indices]
-		G$Nalpha = G$N_alpha_max[indices]
 
-	  if(verbose>1){cat("     ? Evaluate limit_state_function on these samples if necessary\n")}
-		isNAinG = is.na(G$Nalpha);
+	  if(verbose>1){cat("     ? Evaluate lsf on these samples if necessary\n")}
+		isNAinG = is.na(G[indices]);
 	  if(verbose>1){cat("      +",sum(isNAinG),"samples to evaluate in N_alpha =",N_alpha," samples\n")}
-		G$Nalpha[isNAinG] = limit_state_function(U$Nalpha[,isNAinG]); Ncall = Ncall + length(isNAinG)
-		learn_db = cbind(learn_db,U$Nalpha[,isNAinG])
-		G$g = c(G$g,G$Nalpha[isNAinG])
+		G[indices][isNAinG] = lsf(U[,indices[isNAinG]]); Ncall = Ncall + sum(isNAinG)
+		learn_db = cbind(learn_db,U[,indices[isNAinG]])
+		lsf_value = c(lsf_value,G[indices][isNAinG])
 
 	  if(verbose>1){cat("     ? Evaluate meta-model derived indicatrice pi on these samples\n")}
-		Ind_meta = pi(U$Nalpha)
-		Ind_lsf = (G$Nalpha<failure)
+		Ind_meta = pi(U[,indices])
+		Ind_lsf = (G[indices]<failure)
 
 	  if(verbose>0){cat("#Evaluate kriging indicatrice likeness\n")}
 	  if(verbose>0){cat(" mean(Ind_meta) =",mean(Ind_meta),"\n")}
@@ -483,19 +632,16 @@ if(verbose>1){cat("   - Generate N_alpha_max =",N_alpha_max,"points from",dim(se
 		}
 	}
 	if(N_alpha==N_alpha_max){
-		U$Nalpha = U$N_alpha_max
-		G$Nalpha = G$N_alpha_max
-
-		if(verbose>0){cat("#Evaluate limit_state_function on these samples if necessary\n")}
-		isNAinG = is.na(G$Nalpha);
+		if(verbose>0){cat("#Evaluate lsf on these samples if necessary\n")}
+		isNAinG = is.na(G);
 		if(verbose>1){cat(sum(isNAinG),"samples to evaluate in N_alpha =",N_alpha," samples\n")}
-		G$Nalpha[isNAinG] = limit_state_function(U$Nalpha[,isNAinG]); Ncall = Ncall + length(isNAinG)
-		learn_db = cbind(learn_db,U$Nalpha[,isNAinG])
-		G$g = c(G$g,G$Nalpha[isNAinG])
+		G[isNAinG] = lsf(U[,isNAinG]); Ncall = Ncall + sum(isNAinG)
+		learn_db = cbind(learn_db,U[,isNAinG])
+		lsf_value = c(G,G[isNAinG])
 
 		if(verbose>0){cat("#Evaluate meta-model derived indicatrice pi on these samples\n")}
-		Ind_meta = pi(U$Nalpha)
-		Ind_lsf = (G$Nalpha<failure)
+		Ind_meta = pi(U)
+		Ind_lsf = (G<failure)
 
 		if(verbose>0){cat("#Evaluate alpha estimator\n")}
 		Ind = Ind_lsf/Ind_meta
@@ -515,34 +661,30 @@ cat("===========================================================================
 P = P_epsilon*alpha
 cov = sqrt(cov_epsilon^2 + cov_alpha^2 + cov_epsilon^2*cov_alpha^2)
 
-cat("P_epsilon =",P_epsilon,"\n
-alpha =",alpha,"\n
-P =",P,"\n
-cov_epsilon =",cov_epsilon,"\n
-cov_alpha =",cov_alpha,"\n
-cov =",cov,"\n")
+cat("   - P_epsilon =",P_epsilon,"\n")
+cat("   - 95% conf. interv. on P_epsilon:", P_epsilon*(1-2*cov_epsilon),"< p <", P_epsilon*(1+2*cov), "\n")
+cat("   - alpha =",alpha,"\n")
+cat("   - 95% conf. interv. on alpha:", alpha*(1-2*cov_alpha),"< alpha <", alpha*(1+2*cov_alpha), "\n")
+cat("   - p =",P,"\n")
+cat("   - 95% conf. interv. on p:", P*(1-2*cov),"< p <",P*(1+2*cov),"\n")
 
 if(plot + limited_plot){
     res = list(proba=P,
                cov=cov,
                Ncall=Ncall,
                learn_db=learn_db,
-               lsf_value=G$g,
+               lsf_value=(-1)^(!lower.tail)*lsf_value,
                meta_fun=meta_fun,
                meta_model=meta_model,
-               points=points,
-               meta_eval=meta_eval,
-               z_meta=z_meta$mean);
-}
-else {res = list(proba=P,
+               points=points);
+} else {res = list(proba=P,
 		cov=cov,
 		Ncall=Ncall,
 		learn_db=learn_db,
-		lsf_value=G$g,
+		lsf_value=(-1)^(!lower.tail)*lsf_value,
 		meta_fun=meta_fun,
 		meta_model=meta_model,
-		points=points,
-		meta_eval=meta_eval)}
+		points=points)}
 
 
 

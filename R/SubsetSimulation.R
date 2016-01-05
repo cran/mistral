@@ -1,222 +1,237 @@
-## -----------------------------------------------------------------------------
-## Fonction SubsetSimulation
-## -----------------------------------------------------------------------------
-##    Copyright (C) 2013
-##    Developpement : C. WALTER
-##    CEA
-## -----------------------------------------------------------------------------
-
+#' @title Subset Simulation Monte Carlo
+#' 
+#' @description Estimate a probability of failure with the Subset Simulation algorithm (also known as
+#' Multilevel Splitting or Sequential Monte Carlo for rare events).
+#' 
+#' @aliases ss subset
+#' 
+#' @author Clement WALTER \email{clement.walter@cea.fr}
+#' 
+#' @details This algorithm uses the property of conditional probabilities on nested subsets
+#' to calculate a given probability defined by a limit state function.
+#' 
+#' It operates iteratively on \sQuote{populations} to estimate the quantile
+#' corresponding to a probability of \code{p_0}. Then, it generates
+#' samples conditionnaly to this threshold, until found threshold be lower
+#' than 0.
+#' 
+#' Finally, the estimate is the product of the conditional probabilities.
+#' 
+#' @note Problem is supposed to be defined in the standard space. If not, use \code{\link{UtoX}}
+#' to do so. Furthermore, each time a set of vector is defined as a matrix, \sQuote{nrow}
+#' = \code{dimension} and \sQuote{ncol} = number of vector to be consistent with
+#' \code{as.matrix} transformation of a vector.
+#' 
+#' Algorithm calls lsf(X) (where X is a matrix as defined previously) and expects a vector
+#' in return. This allows the user to optimise the computation of a batch of points,
+#' either by vectorial computation, or by the use of external codes (optimised C or
+#' C++ codes for example) and/or parallel computation; see examples in \link{MonteCarlo}.
+#' 
+#' @seealso 
+#' \code{\link{IRW}}
+#' \code{\link{MP}}
+#' \code{\link{MonteCarlo}}
+#' 
+#' @references 
+#'   \itemize{
+#'    \item
+#'      S.-K. Au, J. L. Beck:\cr
+#'      \emph{Estimation of small failure probabilities in high dimensions by Subset Simulation} \cr
+#'      Probabilistic Engineering Mechanics (2001)\cr
+#'    \item A. Guyader, N. Hengartner and E. Matzner-Lober:\cr
+#'     \emph{Simulation and estimation of extreme quantiles and extreme
+#'     probabilities}\cr
+#'     Applied Mathematics \& Optimization, 64(2), 171-196.\cr
+#'    \item F. Cerou, P. Del Moral, T. Furon and A. Guyader:\cr
+#'    \emph{Sequential Monte Carlo for rare event estimation}\cr
+#'    Statistics and Computing, 22(3), 795-808.\cr
+#'  }
+#'  
+#' @examples 
+#' #Try Subset Simulation Monte Carlo on a given function and change number of points.
+#'  
+#' \donttest{
+#'  res = list()
+#'  res[[1]] = SubsetSimulation(2,kiureghian,N=10000)
+#'  res[[2]] = SubsetSimulation(2,kiureghian,N=100000)
+#'  res[[3]] = SubsetSimulation(2,kiureghian,N=500000)
+#' }
+#' 
+#' # Compare SubsetSimulation with MP
+#' \donttest{
+#' p <- res[[3]]$p # get a reference value for p
+#' p_0 <- 0.1 # the default value recommended by Au \& Beck
+#' N_mp <- 100
+#' # to get approxumately the same number of calls to the lsf
+#' N_ss <- ceiling(N_mp*log(p)/log(p_0))
+#' comp <- replicate(50, {
+#' ss <- SubsetSimulation(2, kiureghian, N = N_ss)
+#' mp <- MP(2, kiureghian, N = N_mp, q = 0)
+#' comp <- c(ss$p, mp$p, ss$Ncall, mp$Ncall)
+#' names(comp) = rep(c("SS", "MP"), 2)
+#' comp
+#' })
+#' boxplot(t(comp[1:2,])) # check accuracy
+#' sd.comp <- apply(comp,1,sd)
+#' print(sd.comp[1]/sd.comp[2]) # variance increase in SubsetSimulation compared to MP
+#' 
+#' colMeans(t(comp[3:4,])) # check similar number of calls
+#' }
+#' 
+#' @import ggplot2
+#' @export
 SubsetSimulation = function(dimension,
-          limit_state_function,
-			    proposal_pdf,             # Proposal PDF for MH
-			    pdf = dnorm,              # PDF of the input space
-			    rpdf = rnorm,             # Random generator for the PDF
-			    cutoff_prob = 0.1,        # Cutoff probability for the subsets
-			    n_init_samples = 10000,   # Number of samples per subset
-          burnin = 20,
-          thinning = 4,
-			    plot = FALSE,
-			    output_dir = NULL,
-          verbose = 0) {            # Either 0 for almost no output, 1 for medium size output and 2 for all outputs
-
-cat("==========================================================================================\n")
-cat("                              Beginning of Subset Simulation algorithm \n")
-cat("==========================================================================================\n\n")
+                            #' @param dimension the dimension of the input space.
+                            lsf,
+                            #' @param lsf the function defining failure/safety domain.
+                            p_0 = 0.1,
+                            #' @param p_0 a cutoff probability for defining the subsets.
+                            N = 10000,
+                            #' @param N the number of samples per subset, ie the population size for the Monte
+                            #' Carlo estimation of each conditional probability.
+                            q = 0,
+                            #' @param q the quantile defining the failure domain.
+                            lower.tail = TRUE,
+                            #' @param lower.tail as for pxxxx functions, TRUE for estimating P(lsf(X) < q), FALSE
+                            #' for P(lsf(X) > q)
+                            K,
+                            #' @param K a transition Kernel for Markov chain drawing in the regeneration step.
+                            #' K(X) should propose a matrix of candidate sample (same dimension as X) on which
+                            #' \code{lsf} will be then evaluated and transition accepted of rejected. Default
+                            #' kernel is the one defined K(X) = (X + sigma*W)/sqrt(1 + sigma^2) with W ~ N(0, 1).
+                            burnin = 20,
+                            #' @param burnin a burnin parameter for the the regeneration step.
+                            plot = FALSE,
+                            #' @param plot to plot the contour of the \code{lsf} and the generated sample.
+                            output_dir = NULL,
+                            #' @param output_dir to save the plot into a pdf file. This variable will
+                            #' be paster with
+                            #' "_Subset_Simulation.pdf"
+                            verbose = 0) {
+                            #' @param verbose Either 0 for almost no output, 1 for medium size output and 2 for all outputs
   
-#general meaning of variables used here
-# U stores the coordinates of the n_init_samples=N samples ; U = matrix(dimension x N)
-# G stores the value of the limit state function on these N samlpes ; G = vector(N)
-# G_sorted the list got from sort(G) : G[[1]] = vector N, value of G sorted ; G[[2]] = vector N, indices of G
-# P the final probability, updated at each stage
-# seeds stores the coordinates of the N*p0 samples initializing the MC at each stage ; seeds = matrix(dimension x floor(p0*N)
-# I stands for the indicatrice function at each stage and stores the value for each MC sample ; I = matrix(n(seeds) x floor(1/p0)+1)
-# R is the covariance between samples ; R = vector floor(1/p0)+1 | R[k] = covariance of samples at length k
-# gamma : see definition in Au & Beck's paper, implemented as R list
-# delta list of c.o.v for each conditional probability
-
-if(missing(proposal_pdf)){
-  proposal_pdf = function(x,y=NA,width=2) {
-    if(is.na(y[1])){
-      runif(length(x),min=-width/2,max=width/2)+x
-    }
-    else{
-      1/width^length(x)*(max(abs(x-y))<=2)
-    }
+  cat("==========================================================================================\n")
+  cat("                              Beginning of Subset Simulation algorithm \n")
+  cat("==========================================================================================\n\n")
+  
+  # Fix NOTE issue with R CMD check
+  x <- y <- z <- ..level.. <- NULL
+  
+  if(lower.tail==FALSE){
+    lsf_dec = lsf
+    lsf = function(x) -1*lsf_dec(x)
+    q <- -q
   }
-}
-
-cat("  * n_init_samples :",n_init_samples,"\n\n");
-
-cat(" ================== \n")
-cat(" STEP 1 : FIRST DoE \n")
-cat(" ================== \n\n")
-
-if(verbose>0){cat("  * generate the first N =",n_init_samples,"samples by crude MC \n")}
-#generate the first N samples by crude MC
-U = matrix(NA, nrow=dimension, ncol=n_init_samples);
-for (i in c(1:n_init_samples)){
-	U[,i] = rpdf(dimension);
-}
-
-if(verbose>0){cat("  * evaluate the limit state function on these points \n")}
-#calcul the limit state function on these points
-G = limit_state_function(U);
-Ncall = n_init_samples
-G_sorted = sort(G,index.return=TRUE);
-
-if(verbose>0){cat("  * find the quantile q0 verifying P[g(U) < q0] = p0 \n")}
-#find the quantile q0 verifying P(g(U)<q0) = p0
-q0_rank = floor(cutoff_prob*n_init_samples)
-q0 = G_sorted[[1]][q0_rank];
-cat("      q0 =",q0,"\n")
-
-if(verbose>0){cat("  * Evaluate actual probability \n")}
-#calculate the actual probability
-if(q0>=0){
-	P = q0_rank/n_init_samples
-	subset_prob = cutoff_prob
-}
-else{
-	#set q0 = 0
-	q0 = 0
-
-	#calculate how many negative values in the last N g(U)
-	s = sum((G-abs(G))/(2*G))
-
-	#and so get the probability
-	subset_prob = s/n_init_samples
-	P = subset_prob
-}
-n_subset = 1
-cat("      P =",P,"\n")
-cat("      q0 =",q0,"\n")
-
-if(verbose>0){cat("  * Evaluate COV for the first subset \n")}
-#calculate delta the cov for the first subset
-delta2 = (1-subset_prob)/subset_prob/n_init_samples
-
-#plotting part
-if(plot==TRUE){
-  if(verbose>0){cat("  * 2D plot : FIRST STEP \n")}
-	x = c(-80:80)/10
-	y = c(-80:80)/10
-	z = outer(x,y,function(x,y){z = cbind(x,y); apply(z,1,limit_state_function)})
-	if(is.null(output_dir)) {dev.new("x11",title="Subset Simulation")}
-	else{
-		fileDir = paste(output_dir,"_Subset_Simulation.jpeg",sep="")
-		jpeg(fileDir)
-	}
-	par(pty="s")
-	plot(x,y,type="n")
-}
-
-cat("\n ================ \n")
-cat(" SUBSET ALGORITHM \n")
-cat(" ================ \n\n")
-
-
-#beginning of the subset algorithm
-while(q0>0){
-
+  
+  if(verbose>0){cat("  * Generate the first N =",N,"samples by crude MC \n")}
+  U = matrix(rnorm(dimension*N), nrow = dimension, dimnames = list(rep(c('x', 'y'), ceiling(dimension/2))[1:dimension]))
+  
+  if(verbose>0){cat("  * Evaluate the limit state function \n")}
+  G = lsf(U);
+  Ncall = N
+  
+  if(verbose>0){cat("  * Find the quantile q_0 verifying P[lsf(U) < q_0] = p_0 \n")}
+  q_0 = max(quantile(G, probs = p_0), q)
+  cat("   - q_0 =",q_0,"\n")
+  
+  if(verbose>0){cat("  * Evaluate actual probability \n")}
+  indG = G<q_0
+  P = mean(indG)
+  cov = (1-P)/N/P
+  
+  n_subset = 1
+  cat("   - P =",P,"\n")
+  
+  if(plot==TRUE){
+    
+    if(!is.null(output_dir)) {
+      fileDir = paste(output_dir,"_Subset_Simulation.pdf",sep="")
+      pdf(fileDir)
+    }
+    xplot <- yplot <- c(-80:80)/10
+    df_plot = data.frame(expand.grid(x=xplot, y=yplot), z = lsf(t(expand.grid(x=xplot, y=yplot))))
+    indCol = factor(indG+n_subset, levels = 1:20)
+    p <- ggplot(data = df_plot, aes(x,y)) +
+            geom_contour(aes(z=z, color=..level..), breaks = q_0) +
+            geom_point(data = data.frame(t(U), z = G, ind = indCol), color=factor(indCol)) +
+            theme(legend.position = "none") +
+            xlim(-8, 8) + ylim(-8, 8)
+    print(p)
+  }
+  
+  while(q_0>0){
     
     n_subset = n_subset + 1
-    cat("\n  * STEP ",n_subset," :\n")
     
-	#plotting part
-	if(plot==TRUE){
-	  if(verbose>1){cat("    - 2D PLOT \n")}
-		points(U[1,], U[2,], col=n_subset, pch=n_subset)
-		contour(x,y,z, level=q0, method="edge", add=TRUE)
-	}
-
-	
-    if(verbose>1){cat("    - get the floor(p*N)=",q0_rank,"seeds for next step Metropolis-Hastings algorithm \n")}
-	#get the floor(p*N)=q0_rank seeds for next step Metropolis-Hastings algorithm
-	seeds_ind = G_sorted[[2]][1:q0_rank];
-	seeds = U[,seeds_ind];
-	n_seeds = q0_rank
-
-    if(verbose>1){cat("    - Get N =",n_init_samples,"samples from theses seeds with Metropolis-Hastings algorithm\n")}
-	gen_pop = generateWithlrmM(seeds = seeds,
-                               seeds_eval = G[seeds_ind]-q0,
-                               N = n_init_samples,
-                               limit_f = function(x) {limit_state_function(x) - q0},
-                               p = pdf,
-                               q = proposal_pdf,
-                               modified = TRUE,
-                               burnin = burnin, thinning = thinning)
-	U = gen_pop$points
-	G = gen_pop$eval+q0
-	chain_length = gen_pop$chain_length
-	Ncall = Ncall + gen_pop$Ncall
-
-    if(verbose>1){cat("    - find the quantile q verifying P(g(U)<q) = p \n")}
-	#find the quantile q verifying P(g(U)<q) = p
-	G_sorted = sort(G,index.return=TRUE);
-	q0 = G_sorted[[1]][floor(cutoff_prob*n_init_samples)];
-    if(verbose>1){cat("      q0 =",q0,"\n")}
-
-    if(verbose>1){cat("    - calculate the actual probability \n")}
-	#calculate the actual probability
-	if(q0 >= 0){
-		P = P*floor(cutoff_prob*n_init_samples)/n_init_samples
-		subset_prob = cutoff_prob
-	}
-	else{
-		#set q0 = 0
-		q0 = 0
-
-		#calculate how many negative values in the last N g(U)
-		s = sum((G-abs(G))/(2*G))
-
-		#and so get the probability
-		subset_prob = s/n_init_samples
-		P = P*subset_prob
-	}
-	cat("      P =",P,"\n")
-	cat("      q0 =",q0,"\n")
-
-    if(verbose>1){cat("    - calculate the covariance between samples \n")}
-	#calculate the covariance between samples
-	Ind = eval(G<=q0)*1
-	if(verbose>1){MC_stat = MCMCcovariance(n_seeds = n_seeds, 
-                             chain_length = chain_length, 
-                             VA_values = Ind, 
-                             VA_esp = subset_prob, 
-                             VA_var = subset_prob*(1-subset_prob))}
-    else{capture.output(MC_stat <- MCMCcovariance(n_seeds = n_seeds, 
-                                                 chain_length = chain_length, 
-                                                 VA_values = Ind, 
-                                                 VA_esp = subset_prob, 
-                                                 VA_var = subset_prob*(1-subset_prob)))}
-
-    if(verbose>1){cat("    - Update delta2 \n")}
-	#calculate delta
-	delta2 = delta2 + (MC_stat$cov)^2
-
-}
-
-#final plot
-if(plot==TRUE){
-	points(U[1,],U[2,],col=n_subset+1*(G<0),pch=n_subset)
-	contour(x,y,z,level=0,method="edge",add=TRUE)
-}
-if(!is.null(output_dir)) {dev.off()}
-
-#get the global cov estimated with sum of squared delta[[i]]
-delta = sqrt(delta2)
-
-#return the result
-result = list(proba=P,cov=delta,Ncall=Ncall)
-
-cat("==========================================================================================\n")
-cat("                              Beginning of Subset Simulation algorithm \n")
-cat("==========================================================================================\n\n")
-
-cat("   - proba =",P,"\n")
-cat("   - cov =",delta,"\n")
-cat("   - Ncall =",Ncall,"\n")
-
-return(result)
-
+    if(verbose>0){cat("  * Resample N =",N,"samples with MCMC \n")}
+    seed = sample(which(indG==T), size = N, replace = TRUE)
+    U = U[,seed]
+    G = G[seed]
+    
+    if(missing(K)) {
+      K = function(x){
+        W = array(rnorm(x), dim = dim(x))
+        sigma = apply(x, 1, sd)*2
+        y = (x + sigma*W)/sqrt(1 + sigma^2)
+        return(y)
+      }
+    }
+    
+    replicate(burnin, {
+      U_star <- K(U)
+      G_star <- lsf(U_star)
+      Ncall <<- Ncall + N
+      indG_star <- G_star<q_0
+      U[,indG_star] <<- U_star[,indG_star]
+      G[indG_star] <<- G_star[indG_star]
+    })
+    
+    if(verbose>1){cat("  * Find the quantile q_0 verifying P[lsf(U) < q_0] = p_0 \n")}
+    q_0 = max(quantile(G, probs = p_0), q)
+    if(verbose>0){cat("  * Evaluate actual probability \n")}
+    indG = G<q_0
+    P_ss = mean(indG)
+    P = P*P_ss
+    cov = cov + (1-P_ss)/P_ss/N
+    cat("   - q_0 =",q_0,"\n")
+    cat("   - P =",P,"\n")
+    
+    if(plot==TRUE){
+      indCol = factor(indG+n_subset, levels = 1:20)
+      p <- p + geom_contour(aes(z=z, color=..level..), breaks = q_0) +
+              geom_point(data = data.frame(t(U), z = G, ind = indCol), color= factor(indCol))
+      print(p)
+    }
+    
+  }
+  
+  if(!is.null(output_dir)) {dev.off()}
+  
+  cat("==========================================================================================\n")
+  cat("                              End of Subset Simulation algorithm \n")
+  cat("==========================================================================================\n\n")
+  
+  cat("   - p =",P,"\n")
+  cat("   - q =", q, "\n")
+  cat("   - 95% confidence intervalle :",P*(1-2*cov),"< p <",P*(1+2*cov),"\n")
+  cat("   - cov =",cov,"\n")
+  cat("   - Ncall =",Ncall,"\n")
+  
+  
+  #return the result
+  #' @return   An object of class \code{list} containing the failure probability and
+  #' some more outputs as described below:
+  result = list(p = P,
+                #' \item{p}{the estimated failure probability.}
+                cov = cov,
+                #' \item{cov}{the estimated coefficient of variation of the estimate.}
+                Ncall = Ncall,
+                #' \item{Ncall}{the total number of calls to the \code{lsf}.}
+                X = U,
+                #' \item{U}{the generated samples.}
+                Y = G*(-1)^(!lower.tail)
+                #' \item{Y}{the value lsf(X).}
+                )
+  return(result)
+  
 }

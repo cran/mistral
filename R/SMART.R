@@ -7,7 +7,7 @@
 ## -----------------------------------------------------------------------------
 
 SMART = function(dimension,
-			limit_state_function,
+			lsf,
 			N1 = 10000,                     # Number of samples for the (L)ocalisation step
 			N2 = 50000,                     # Number of samples for the (S)tabilisation step
 			N3 = 200000,                    # Number of samples for the (C)onvergence step
@@ -45,6 +45,8 @@ SMART = function(dimension,
 	cat("                              Beginning of SMART algorithm\n")
 	cat("==========================================================================================\n\n")
 	
+	# Fix NOTE for R CMD check
+	x <- y <- z <- ..level.. <- NULL
 	
 	## STEP 0 : INITIALISATION
 	
@@ -52,7 +54,7 @@ SMART = function(dimension,
 	z_meta = NA;
 	
 	#Define the proportion of margin, switching and closest points at the beginning and at the end of each stage
-	#current proportion at each iteration is given by linear regression between these two extremities
+#current proportion at each iteration is given by linear regression between these two extremities
 	proportion = list(L_stage=list(Nmargin=c(100,100),Nswitch=c(0,0),Nclose=c(0,0)),
 			S_stage=list(Nmargin=c(80,40),Nswitch=c(20,50),Nclose=c(0,10)),
 			C_stage=list(Nmargin=c(0,0),Nswitch=c(90,90),Nclose=c(10,10)))
@@ -78,23 +80,6 @@ SMART = function(dimension,
 		N2=NA*c(1:N2),
 		N3=NA*c(1:N3))
 	
-	#plotting part
-	if(plot==TRUE){
-	  if(verbose>0){cat(" * 2D PLOT : SET UP \n\n")}
-		x_plot = c(-80:80)/10
-		y_plot = c(-80:80)/10
-		if(is.null(z_lsf)) {z_lsf = outer(x_plot,y_plot,function(x,y){z = cbind(x,y); apply(z,1,limit_state_function)})}
-		if(add==FALSE){
-			if(is.null(output_dir)) {dev.new("x11",title="SMART")}
-			else{
-				fileDir = paste(output_dir,"_SMART.jpeg",sep="")
-				jpeg(fileDir)
-			}
-			par(pty="s")
-			plot(x_plot,y_plot,xlab="x",ylab="y",type="n")
-		}
-	}
-	
 	cat(" ============================================= \n")
 	cat(" STEP 1 : EVALUATION OF A FIRST METAMODEL \n")
 	cat(" ============================================= \n\n")
@@ -110,7 +95,7 @@ SMART = function(dimension,
   
 	if(is.null(limit_fun_MH)) {
 	  if(verbose>0){cat(" * Generate Nu =",Nu,"uniformly distributed samples in a sphere of radius Ru =",Ru,"\n")}
-		U$Nu = runifSphere(dimension=dimension,N=Nu,radius=Ru)
+		U$Nu = t(runifSphere(dimension=dimension,N=Nu,radius=Ru))
 	}
 	else{
 		if(sampling_strategy=="MH"){
@@ -123,38 +108,58 @@ SMART = function(dimension,
 		}
 		else{
 		  if(verbose>0){cat(" * Generate Nu =",Nu,"uniformly distributed samples with an accept-reject strategy\n")}
-			rand = function(dimension,N) {runifSphere(dimension,N,radius=Ru)}
+			rand = function(dimension,N) {t(runifSphere(dimension,N,radius=Ru))}
 			U$Nu = generateWithAR(dimension=dimension,N=Nu,limit_f=limit_fun_MH,rand=rand)
 		}
 	}
+	rownames(U$Nu) <- rep(c('x', 'y'), length.out = dimension)
 
 	if(verbose>0){cat(" * Assessment of g on these points\n")}
-	G$Nu = limit_state_function(U$Nu);Ncall = Ncall + Nu
+	G$Nu = lsf(U$Nu);Ncall = Ncall + Nu
 
 	#plotting part
 	if(plot==TRUE){
+	  
+	  xplot <- yplot <- c(-80:80)/10
+	  df_plot = data.frame(expand.grid(x=xplot, y=yplot), z = lsf(t(expand.grid(x=xplot, y=yplot))))
+	  
+	  if(add==TRUE){
+	    p <- last_plot()
+	  } else {
+	    p <- ggplot(data = df_plot, aes(x,y)) +
+	      geom_contour(aes(z=z, color=..level..), breaks = failure) +
+	      theme(legend.position = "none") +
+	      xlim(-8, 8) + ylim(-8, 8)
+	  }
 	  if(verbose>0){cat("2D PLOT : FIRST DoE \n")}
 		if(is.null(limit_fun_MH)) {
-      symbols(0,0,circles=Ru,inches=F,add=TRUE)
+		  circleFun <- function(center = c(0,0),diameter = 1, npoints = 100){
+		    r = diameter / 2
+		    tt <- seq(0,2*pi,length.out = npoints)
+		    xx <- center[1] + r * cos(tt)
+		    yy <- center[2] + r * sin(tt)
+		    return(data.frame(x = xx, y = yy))
+		  }
+		  
+		  dat <- circleFun(diameter = Ru*2,npoints = 100)
+		  #geom_path will do open circles, geom_polygon will do filled circles
+		  p <- p + geom_path(data = dat, aes(alpha = 0.3))
+		  print(p)
 		}
 		else{
-      if(is.null(z_MH)){
-        z = rbind(rep(x_plot,length(y_plot)),sort(rep(y_plot,length(x_plot))))
-        z_meta = limit_fun_MH(z)
-        z_meta$mean = matrix(z_meta$mean,length(x_plot),length(y_plot))
-        z_MH = z_meta$mean
-      }
-      contour(x_plot,y_plot,z_MH,level=0,labels="Subset limit",method="edge",add=TRUE)
+		  z_MH = limit_fun_MH(t(df_plot[,1:2]))
+		  df_plot_MH <- data.frame(df_plot[,1:2], z = z_MH$mean)
+		  p <- p + geom_contour(data = df_plot_MH, aes(z=z, color=..level..), breaks = 0)
 		}
-		points(U$Nu[1,],U$Nu[2,],pch=3,col=2)
-		contour(x_plot,y_plot,z_lsf,level=failure,labels=paste("LSF=",failure,sep=""),method="edge",add=TRUE)
+	  p <- p + geom_point(data = data.frame(t(U$Nu), z = lsf(U$Nu)), aes(color = z))
+	  print(p)
 	}
 
 	#add points to the learning database
 	if(verbose>0){cat(" * Add points to the learning database\n")}
 	if(is.null(learn_db)){
 		learn_db = cbind(seq(0,0,l=dimension),U$Nu)
-		g0 = limit_state_function(seq(0,0,l=dimension));Ncall = Ncall + 1;#this is to insure consistency between model sign and limit_state_function sign
+		g0 = lsf(as.matrix(seq(0,0,l=dimension)));Ncall = Ncall + 1;#this is to insure consistency between model sign and lsf sign
 		G$g = c(g0,G$Nu)
 	}
 	else{
@@ -175,13 +180,9 @@ SMART = function(dimension,
 	#plotting part
 	if(plot==TRUE){
 	  if(verbose>0){cat("2D PLOT : FIRST METAMODEL\n")}
-		z = rbind(rep(x_plot,length(y_plot)),sort(rep(y_plot,length(x_plot))))
-		z_meta = meta_fun(z)
-		z_meta$mean = matrix(z_meta$mean,length(x_plot),length(y_plot))
-		z_meta$sd = matrix(z_meta$sd,length(x_plot),length(y_plot))
-		contour(x_plot,y_plot,z_meta$mean,level=0,labels="Metamodel",method="edge",add=TRUE,col=4)
-		contour(x_plot,y_plot,z_meta$mean+1*z_meta$sd,level=0,labels=paste("-",1,sep=""),method="edge",lty="dashed",add=TRUE,col=4)
-		contour(x_plot,y_plot,z_meta$mean-1*z_meta$sd,level=0,labels=paste("+",1,sep=""),method="edge",lty="dashed",add=TRUE,col=4)
+		z_meta = meta_fun(t(df_plot[,1:2]))
+		df_plot_meta <- data.frame(df_plot[,1:2], z = z_meta$mean)
+		print(p_meta <- p + geom_contour(data = df_plot_meta, aes(z=z, color=..level.., alpha = 0.5), breaks = c(0, -1, 1)))
 	}
 
 	cat(" ============================= \n")
@@ -229,7 +230,7 @@ SMART = function(dimension,
 			else {
 				#Generate samples with a uniform distribution on a sphere of radius Ru
 			  if(verbose>0){cat(" * Generate samples with a uniform distribution on a sphere of radius Ru =",Ru,"\n")}
-				U[[stage]] = runifSphere(dimension=dimension,N=N,radius=Ru)
+				U[[stage]] = t(runifSphere(dimension=dimension,N=N,radius=Ru))
 			}
 		}
 		else{
@@ -244,7 +245,7 @@ SMART = function(dimension,
 					U[[stage]] = generateWithAR(dimension=dimension,N=N,limit_f=limit_fun_MH,rand=rand)
 				}
 				else {
-					rand = function(dimension,N) {runifSphere(dimension=dimension,N=N,radius=Ru)}
+					rand = function(dimension,N) {t(runifSphere(dimension=dimension,N=N,radius=Ru))}
 					U[[stage]] = generateWithAR(dimension=dimension,N=N,limit_f=limit_fun_MH,rand=rand)
 				}
 			}
@@ -270,21 +271,23 @@ SMART = function(dimension,
 						return(U[[stage]][,isMargin])
 					})
 				U$Nmargin = as.matrix(U$Nmargin)
-        
-				#plotting part
-				if(plot==TRUE){
-				  if(verbose>0){cat(" * 2D PLOT : UPDATE\n")}
-				  points(U$Nmargin[1,],U$Nmargin[2,],pch=8,col=3)
-				}
+				rownames(U$Nmargin) <- rep(c('x', 'y'), length.out = dimension)
         
 				#Assessment of g
 				if(verbose>0){cat(" * Assessment of g on these points \n")}
-				G$Nmargin <- limit_state_function(U$Nmargin);Ncall = Ncall + Nmargin
+				G$Nmargin <- lsf(U$Nmargin);Ncall = Ncall + Nmargin
 				#Add points U$Nmargin to the learning database
 				if(verbose>0){cat(" * Add points to the learning database\n")}
 				learn_db <- cbind(learn_db,U$Nmargin)
 				G$g = c(G$g,G$Nmargin)
 	
+				#plotting part
+				if(plot==TRUE){
+				  if(verbose>0){cat(" * 2D PLOT : UPDATE\n")}
+				  print(p_meta <- p_meta + geom_point(data = data.frame(t(U$Nmargin), z = G$Nmargin), aes(color = z)))
+				  p <- p + geom_point(data = data.frame(t(U$Nmargin), z = G$Nmargin), aes(color = z))
+				}
+				
 				#Train the model
 				if(verbose>0){cat(" * Train the model\n")}
 				meta = trainModel(meta_model,design=learn_db,response=(G$g-failure),updesign=U$Nmargin,upresponse=(G$Nmargin-failure),type="SVM")
@@ -310,21 +313,21 @@ SMART = function(dimension,
 			             return(U[[stage]][,isSwitched]);
 			           })
 				U$Nswitch = as.matrix(U$Nswitch)
-
-				#plotting part
-				if(plot==TRUE){
-				  if(verbose>0){cat(" * 2D PLOT : UPDATE\n")}
-				  points(U$Nswitch[1,],U$Nswitch[2,],pch=8,col=3)
-				}
-        
+				rownames(U$Nswitch) <- rep(c('x', 'y'), length.out = dimension)
 				#Assessment of g
 				if(verbose>0){cat(" * Assessment of g\n")}
-				G$Nswitch = limit_state_function(U$Nswitch);Ncall = Ncall + Nswitch
+				G$Nswitch = lsf(U$Nswitch);Ncall = Ncall + Nswitch
 				#Add points U$Nmargin + U$Nswitch to the learning database
 				if(verbose>0){cat(" * Add points U$Nswitch  to the learning database\n")}
 				learn_db = cbind(learn_db,U$Nswitch)
 				G$g = c(G$g,G$Nswitch)
 	
+				if(plot==TRUE){
+				  if(verbose>0){cat(" * 2D PLOT : UPDATE\n")}
+				  print(p_meta <- p_meta + geom_point(data = data.frame(t(U$Nswitch), z = G$Nswitch), aes(color = z)))
+				  p <- p + geom_point(data = data.frame(t(U$Nswitch), z = G$Nswitch), aes(color = z))
+				}
+				
 				#Train the model
 				if(verbose>0){cat(" * Train the model\n")}
 				meta = trainModel(meta_model,design=learn_db,response=(G$g-failure),updesign=U$Nswitch,upresponse=(G$Nswitch-failure),type="SVM")
@@ -341,21 +344,22 @@ SMART = function(dimension,
 		  if(verbose>0){cat(" * Selection of Nclose =",Nclose,"new points where g is to be assessed\n")}
 			isClose = sort(abs(G_meta[[stage]]),index=TRUE)$ix[1:Nclose]
 			U$Nclose = as.matrix(U[[stage]][,isClose])
-      
-			#plotting part
-			if(plot==TRUE){
-			  if(verbose>0){cat(" * 2D PLOT : UPDATE\n")}
-			  points(U$Nclose[1,],U$Nclose[2,],pch=8,col=3)
-			}
+      rownames(U$Nclose) <- rep(c('x', 'y'), length.out = dimension)
       
 			#Assessment of g
 		  if(verbose>0){cat(" * Assessment of g\n")}
-			G$Nclose = limit_state_function(U$Nclose);Ncall = Ncall + Nclose
+			G$Nclose = lsf(U$Nclose);Ncall = Ncall + Nclose
 			#Add points U$Nclose to the learning database
 		  if(verbose>0){cat(" * Add points U$Nclose to the learning database\n")}
 			learn_db = cbind(learn_db,U$Nclose)
 			G$g = c(G$g,G$Nclose)
 
+			if(plot==TRUE){
+			  if(verbose>0){cat(" * 2D PLOT : UPDATE\n")}
+			  print(p_meta <- p_meta + geom_point(data = data.frame(t(U$Nclose), z = G$Nclose), aes(color = z)))
+			  p <- p + geom_point(data = data.frame(t(U$Nclose), z = G$Nclose), aes(color = z))
+			}
+			
 			#Train the model
 		  if(verbose>0){cat(" * Train the model\n")}
 			meta = trainModel(meta_model,design=learn_db,response=(G$g-failure),updesign=U$Nclose,upresponse=(G$Nclose-failure),type="SVM")
@@ -369,50 +373,10 @@ SMART = function(dimension,
 	  #plotting part
 	  if(plot==TRUE){
 	    if(verbose>0){cat(" * 2D PLOT : UPDATE\n")}
-	    par(pty="s")
-	    plot(x_plot,y_plot,xlab="x",ylab="y",type="n")
-	    z = rbind(rep(x_plot,length(y_plot)),sort(rep(y_plot,length(x_plot))))
-	    z_meta = meta_fun(z)
-	    z_meta$mean = matrix(z_meta$mean,length(x_plot),length(y_plot))
-	    z_meta$sd = matrix(z_meta$sd,length(x_plot),length(y_plot))
-	    contour(x_plot,y_plot,z_lsf,level=failure,labels=paste("LSF=",failure,sep=""),method="edge",add=TRUE)
-	    contour(x_plot,y_plot,z_meta$mean,level=0,labels="Metamodel",method="edge",add=TRUE,col=4)
-	    contour(x_plot,y_plot,z_meta$mean+alpha_margin*z_meta$sd,level=0,labels=paste("-",alpha_margin,sep=""),method="edge",lty="dashed",add=TRUE,col=4)
-	    contour(x_plot,y_plot,z_meta$mean-alpha_margin*z_meta$sd,level=0,labels=paste("+",alpha_margin,sep=""),method="edge",lty="dashed",add=TRUE,col=4)
-	    if(is.null(z_MH)) {symbols(0,0,circles=Ru,inches=F,add=TRUE)}
-	    else {contour(x_plot,y_plot,z_MH,level=0,labels="Subset limit",method="edge",add=TRUE)}
-	    points(learn_db[1,],learn_db[2,],pch=3,col=2)
+	    z_meta = meta_fun(t(df_plot[,1:2]))
+	    df_plot_meta <- data.frame(df_plot[,1:2], z = z_meta$mean)
+	    print(p_meta <- p + geom_contour(data = df_plot_meta, aes(z=z, color=..level.., alpha = 0.5), breaks = c(0, -1, 1)))
 	  }
-	}
-
-	#plotting part
-	if(limited_plot==TRUE){
-	cat(" 2D PLOT : LSF, FINAL DATABSE AND METAMODEL \n")
-
-		x_plot = c(-80:80)/10
-		y_plot = c(-80:80)/10
-		if(is.null(z_lsf)) {z_lsf = outer(x_plot,y_plot,function(x,y){z = cbind(x,y); apply(z,1,limit_state_function)})}
-		if(add==FALSE){
-			if(is.null(output_dir)) {dev.new("x11",title="SMART")}
-			else{
-				fileDir = paste(output_dir,"_SMART.jpeg",sep="")
-				jpeg(fileDir)
-			}
-			par(pty="s")
-			plot(x_plot,y_plot,xlab="x",ylab="y",type="n")
-		}
-
-		z = rbind(rep(x_plot,length(y_plot)),sort(rep(y_plot,length(x_plot))))
-		z_meta = meta_fun(z)
-		z_meta$mean = matrix(z_meta$mean,length(x_plot),length(y_plot))
-		z_meta$sd = matrix(z_meta$sd,length(x_plot),length(y_plot))
-		contour(x_plot,y_plot,z_lsf,level=failure,labels=paste("LSF=",failure,sep=""),method="edge",add=TRUE)
-		contour(x_plot,y_plot,z_meta$mean,level=0,labels="Metamodel",method="edge",add=TRUE,col=4)
-		contour(x_plot,y_plot,z_meta$mean+alpha_margin*z_meta$sd,level=0,labels=paste("-",alpha_margin,sep=""),method="edge",lty="dashed",add=TRUE,col=4)
-		contour(x_plot,y_plot,z_meta$mean-alpha_margin*z_meta$sd,level=0,labels=paste("+",alpha_margin,sep=""),method="edge",lty="dashed",add=TRUE,col=4)
-		points(learn_db[1,],learn_db[2,],pch=3,col=2)
-		if(is.null(z_MH)) {symbols(0,0,circles=Ru,inches=F,add=TRUE)}
-		else {contour(x_plot,y_plot,z_MH,level=0,labels="Subset limit",method="edge",add=TRUE)}
 	}
 
 	if( (plot || limited_plot) & add==FALSE & !is.null(output_dir)) {dev.off()}

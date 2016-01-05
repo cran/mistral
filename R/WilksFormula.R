@@ -1,3 +1,4 @@
+#' @export
 WilksFormula <- function(alpha=0.95,beta=0.95,bilateral=FALSE,order=1){
 
 #--------------------------------------------------------------

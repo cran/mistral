@@ -10,7 +10,7 @@
 ## FONCTION POUR MODIFIER LA MATRICE DE CORRELATION
 ##   * ENTREE : MATRICE DE CORRELATION DE SPEARMAN
 ##   * SORTIE : MATRICE MODIFIEE POUR DISTRIBUTION JOINTE
-
+#' @export
 ModifCorrMatrix = function(Rs){
     Rho <- Rs
     R0 <- Rho
@@ -27,7 +27,7 @@ ModifCorrMatrix = function(Rs){
 ##
 ## CALCUL DES PARAMETRES INTERNES A PARTIR DES MOMENTS
 ## 
-
+#' @export
 ComputeDistributionParameter = function(margin){
     ##
     ## LOGNORMAL DISTRIBUTION
@@ -68,7 +68,7 @@ ComputeDistributionParameter = function(margin){
 ##
 ## TRANSFORMATION ISO-PROBABILISTE
 ##
-
+#' @export
 UtoX = function(U, input.margin, L0){
     d <- length(input.margin)
     Z <- as.matrix(U)
@@ -86,7 +86,8 @@ UtoX = function(U, input.margin, L0){
 
 ZtoX = function(Z, input.margin){
     d <- length(input.margin)
-    X <- matrix(NA,d,1)
+    # X <- matrix(NA,d,1)
+	X <- matrix(NA, d, dim(Z)[2])
     for (i in 1:d){
         if(input.margin[[i]]$type == "Norm"){
             X[i,] <- input.margin[[i]]$MEAN + input.margin[[i]]$STD*Z[i,] 

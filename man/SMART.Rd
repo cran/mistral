@@ -3,12 +3,12 @@
 \title{Support-vector Margin Algoritm for Reliability esTimation}
 
 \description{
-Calculate a failure probability with SMART method.
+Calculate a failure probability with SMART method. This should not be used by itself but only through S2MART.
 }
 
 \usage{
 SMART(dimension,
-      limit_state_function,
+      lsf,
       N1 		          = 10000,
       N2 	          	= 50000,
       N3 	          	= 200000,
@@ -43,7 +43,7 @@ SMART(dimension,
 
 \arguments{
   \item{dimension}{an integer giving the dimension of the input space.}
-  \item{limit_state_function}{the failure fonction.}
+  \item{lsf}{the failure fonction.}
   \item{N1}{an integer defining the number of uniform samples for (L)ocalisation stage.}
   \item{N2}{an integer defining the number of uniform samples for (S)tabilisation stage.}
   \item{N3}{an integer defining the number of gaussian standard samples for (C)onvergence stage, and so Monte-Carlo population size.}
@@ -127,32 +127,5 @@ Furthermore, each time a set of vector is defined as a matrix, \sQuote{nrow} = \
   \code{\link{SubsetSimulation}}
   \code{\link{MonteCarlo}}
   \code{\link[e1071]{svm}} (in package \pkg{e1071})
-}
-
-\examples{
-#Limit state function defined by Kiureghian & Dakessian :
-kiureghian = function(x, b=5, kappa=0.5, e=0.1) {
-x = as.matrix(x)
-b - x[2,] - kappa*(x[1,]-e)^2
-}
-
-\dontrun{
-SMART_estim = SMART(dimension=2,limit_state_function=kiureghian,plot=TRUE)
-MC_estim = MonteCarlo(2, kiureghian, N_max = 500000)
-}
-
-#Limit state function defined by Waarts :
-waarts = function(x) {
-x = as.matrix(x)
-apply(x, 2, function(u) {min(
-  	(3+(u[1]-u[2])^2/10 - (u[1]+u[2])/sqrt(2)),
-		(3+(u[1]-u[2])^2/10 + (u[1]+u[2])/sqrt(2)),
-		u[1]-u[2]+7/sqrt(2),
-		u[2]-u[1]+7/sqrt(2))})
-}
-
-\dontrun{
-SMART_estim = SMART(dimension=2,limit_state_function=waarts,plot=TRUE)
-MC_estim = MonteCarlo(2, waarts, N_max = 500000)
-}
+  \code{\link{S2MART}}
 }
