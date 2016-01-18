@@ -130,13 +130,14 @@ external codes (optimised C or C++ codes for example) and/or parallel
 computation; see examples in \link{MonteCarlo}.
 }
 \examples{
-\donttest{
+\dontrun{
 res = AKMCS(dimension=2,lsf=kiureghian,plot=TRUE)
 
 #Compare with crude Monte-Carlo reference value
 N = 500000
+dimension = 2
 U = matrix(rnorm(dimension*N),dimension,N)
-G = apply(U,2,kiureghian)
+G = kiureghian(U)
 P = mean(G<0)
 cov = sqrt((1-P)/(N*P))
 }
@@ -149,17 +150,18 @@ waarts = function(u) {
   val = apply(cbind(b1, b2), 1, min)
 }
 
-\donttest{
+\dontrun{
 res = list()
 res$matern5_2 = AKMCS(2, waarts, plot=TRUE)
 res$matern3_2 = AKMCS(2, waarts, kernel="matern3_2", plot=TRUE)
 res$gaussian  = AKMCS(2, waarts, kernel="gauss", plot=TRUE)
 res$exp       = AKMCS(2, waarts, kernel="exp", plot=TRUE)
-  
+
 #Compare with crude Monte-Carlo reference value
 N = 500000
+dimension = 2
 U = matrix(rnorm(dimension*N),dimension,N)
-G = apply(U,2,waarts)
+G = waarts(U)
 P = mean(G<0)
 cov = sqrt((1-P)/(N*P))
 }

@@ -68,7 +68,7 @@
 #' # Get faililng samples for the kiureghian limit state function
 #' # Failure is defined as lsf(X) < 0 so we have to invert the lsf
 #' lsf <- function(x) -1*kiureghian(x)
-#' \donttest{
+#' \dontrun{
 #' fail.samp <- IRW(2, lsf, q = 0, N = 10, plot = TRUE)
 #' }
 #' @import ggplot2

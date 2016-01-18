@@ -53,7 +53,7 @@
 #'  }
 #' 
 #' @examples 
-#' \donttest{
+#' \dontrun{
 #' # Estimate some probability and quantile with the parabolic lsf
 #' p.est <- MP(2, kiureghian, N = 100, q = 0) # estimate P(lsf(X) < 0)
 #' p.est <- MP(2, kiureghian, N = 100, q = 7.8, lower.tail = FALSE) # estimate P(lsf(X) > 7.8)
@@ -69,7 +69,9 @@
 #' # check validity range
 #' p.est$ecdf_MP(p.est$L_max - 1)
 #' # this example will fail because the quantile is greater than the limit
-#' p.est$ecdf_MP(p.est$L_max + 0.1)
+#' tryCatch({
+#'    p.est$ecdf_MP(p.est$L_max + 0.1)},
+#'    error = function(cond) message(cond))
 #' 
 #' # Run in parallel
 #' library(doParallel)

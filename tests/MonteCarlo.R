@@ -61,13 +61,13 @@ lsf(U0)
 ## CALCUL
 ## -----------------------------------
 
-MC = MonteCarlo( dimension    = Dim,    
-                 lsf          = lsf,
-                 N_max        = NbSim,
-                 q            = 0.0,
-                 lower.tail   = TRUE,
-                 precision    = 0.01,
-                 N_batch      = 50000,
-                 plot         = FALSE, 
-                 output_dir   = NULL,
-                 verbose      = 2)
+# MC = MonteCarlo( dimension    = Dim,    
+#                  lsf          = lsf,
+#                  N_max        = NbSim,
+#                  q            = 0.0,
+#                  lower.tail   = TRUE,
+#                  precision    = 0.01,
+#                  N_batch      = 50000,
+#                  plot         = FALSE, 
+#                  output_dir   = NULL,
+#                  verbose      = 2)

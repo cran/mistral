@@ -76,7 +76,7 @@
 #' \code{\link[e1071]{svm}} (in package \pkg{e1071})
 #' 
 #' @examples 
-#' \donttest{
+#' \dontrun{
 #'   res = S2MART(dimension = 2,
 #'                lsf = kiureghian,
 #'                N1 = 1000, N2 = 5000, N3 = 10000,
@@ -87,7 +87,7 @@
 #' }
 #' 
 #' #See impact of metamodel-based subset simulation with Waarts function :
-#' \donttest{
+#' \dontrun{
 #'   res = list()
 #'   # SMART stands for the pure metamodel based algorithm targeting directly the
 #'   # failure domain. This is not recommended by its authors which for this purpose

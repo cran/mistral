@@ -33,12 +33,6 @@
 #' @examples
 #' #First some considerations on the usage of the lsf. 
 #' #Limit state function defined by Kiureghian & Dakessian :
-#' lsf = function(x, b=5, kappa=0.5, e=0.1) {
-#'   x = as.matrix(x)
-#'   b - x[2,] - kappa*(x[1,]-e)^2 # vectorial computation, run fast
-#' }
-#' y = lsf(X <- matrix(rnorm(20), 2, 10))
-#' 
 #' # Remember you have to consider the fact that the input will be a matrix ncol >= 1
 #' lsf_wrong = function(x, b=5, kappa=0.5, e=0.1) {
 #'   b - x[2] - kappa*(x[1]-e)^2 # work only with a vector of lenght 2
@@ -46,32 +40,37 @@
 #' lsf_correct = function(x){
 #'   apply(x, 2, lsf_wrong)
 #' }
+#' lsf = function(x, b=5, kappa=0.5, e=0.1) {
+#'   x = as.matrix(x)
+#'   b - x[2,] - kappa*(x[1,]-e)^2 # vectorial computation, run fast
+#' }
 #' 
+#' y = lsf(X <- matrix(rnorm(20), 2, 10))
 #' #Compare running time
-#' \donttest{
+#' \dontrun{
 #'   require(microbenchmark)
 #'   X = matrix(rnorm(2e5), 2)
 #'   microbenchmark(lsf(X), lsf_correct(X))
 #' }
 #' 
-#' #For example use of parallel computation
+#' #Example of parallel computation
 #' require(doParallel)
 #' lsf_par = function(x){
 #'  foreach(x=iter(X, by='col'), .combine = 'c') %dopar% lsf(x)
 #' }
 #' 
 #' #Try Naive Monte Carlo on a given function with different failure level
-#' \donttest{
+#' \dontrun{
 #'   res = list()
-#'   res[[1]] = MonteCarlo(2,kiureghian,q = 0,plot=TRUE)
-#'   res[[2]] = MonteCarlo(2,kiureghian,q = 1,plot=TRUE)
-#'   res[[3]] = MonteCarlo(2,kiureghian,q = -1,plot=TRUE)
+#'   res[[1]] = MonteCarlo(2,lsf,q = 0,plot=TRUE)
+#'   res[[2]] = MonteCarlo(2,lsf,q = 1,plot=TRUE)
+#'   res[[3]] = MonteCarlo(2,lsf,q = -1,plot=TRUE)
 #'   
 #' }
 #' 
 #' 
 #' #Try Naive Monte Carlo on a given function and change number of points.
-#' \donttest{
+#' \dontrun{
 #'   res = list()
 #'   res[[1]] = MonteCarlo(2,lsf,N_max = 10000)
 #'   res[[2]] = MonteCarlo(2,lsf,N_max = 100000)

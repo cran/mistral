@@ -57,14 +57,14 @@ lsf(U0)
 ## CALCUL
 ## -----------------------------------
 
-Resu = MetaIS(dimension      = Dim, 
-              lsf            = lsf,
-              lower.tail     = TRUE,
-              failure        = 0.0,
-              N              = 1E+6, 
-              # kernel         = "matern5_2", 
-              kernel         = "gauss",
-              plot           = TRUE,
-              limited_plot   = FALSE,
-              add            = FALSE,
-              verbose        = 2)
+# Resu = MetaIS(dimension      = Dim, 
+#               lsf            = lsf,
+#               lower.tail     = TRUE,
+#               failure        = 0.0,
+#               N              = 1E+6, 
+#               # kernel         = "matern5_2", 
+#               kernel         = "gauss",
+#               plot           = TRUE,
+#               limited_plot   = FALSE,
+#               add            = FALSE,
+#               verbose        = 2)

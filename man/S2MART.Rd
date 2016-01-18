@@ -79,7 +79,7 @@ external codes (optimised C or C++ codes for example) and/or parallel
 computation; see examples in \link{MonteCarlo}.
 }
 \examples{
-\donttest{
+\dontrun{
   res = S2MART(dimension = 2,
                lsf = kiureghian,
                N1 = 1000, N2 = 5000, N3 = 10000,
@@ -90,7 +90,7 @@ computation; see examples in \link{MonteCarlo}.
 }
 
 #See impact of metamodel-based subset simulation with Waarts function :
-\donttest{
+\dontrun{
   res = list()
   # SMART stands for the pure metamodel based algorithm targeting directly the
   # failure domain. This is not recommended by its authors which for this purpose

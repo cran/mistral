@@ -50,7 +50,7 @@
 #' @examples 
 #' #Try Subset Simulation Monte Carlo on a given function and change number of points.
 #'  
-#' \donttest{
+#' \dontrun{
 #'  res = list()
 #'  res[[1]] = SubsetSimulation(2,kiureghian,N=10000)
 #'  res[[2]] = SubsetSimulation(2,kiureghian,N=100000)
@@ -58,7 +58,7 @@
 #' }
 #' 
 #' # Compare SubsetSimulation with MP
-#' \donttest{
+#' \dontrun{
 #' p <- res[[3]]$p # get a reference value for p
 #' p_0 <- 0.1 # the default value recommended by Au \& Beck
 #' N_mp <- 100

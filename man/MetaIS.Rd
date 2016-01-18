@@ -159,12 +159,14 @@ x = as.matrix(x)
 b - x[2,] - kappa*(x[1,]-e)^2
 }
 
-\donttest{res = MetaIS(dimension=2,lsf=kiureghian,plot=TRUE)
+\dontrun{
+res = MetaIS(dimension=2,lsf=kiureghian,plot=TRUE)
 
 #Compare with crude Monte-Carlo reference value
 N = 500000
+dimension = 2
 U = matrix(rnorm(dimension*N),dimension,N)
-G = apply(U,2,kiureghian)
+G = kiureghian(U)
 P = mean(G<0)
 cov = sqrt((1-P)/(N*P))
 }
@@ -177,7 +179,7 @@ waarts = function(u) {
   val = apply(cbind(b1, b2), 1, min)
 }
 
-\donttest{
+\dontrun{
 res = list()
 res$matern5_2 = MetaIS(2,waarts,plot=TRUE)
 res$matern3_2 = MetaIS(2,waarts,kernel="matern3_2",plot=TRUE)
@@ -186,8 +188,9 @@ res$exp = MetaIS(2,waarts,kernel="exp",plot=TRUE)
 
 #Compare with crude Monte-Carlo reference value
 N = 500000
+dimension = 2
 U = matrix(rnorm(dimension*N),dimension,N)
-G = apply(U,2,waarts)
+G = waarts(U)
 P = mean(G<0)
 cov = sqrt((1-P)/(N*P))
 }

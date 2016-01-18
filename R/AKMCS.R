@@ -1,10 +1,10 @@
 #' @title Active learning reliability method combining Kriging and Monte Carlo
 #' Simulation
-#' 
+#'
 #' @description Estimate a failure probability with the AKMCS method.
-#' 
+#'
 #' @author Clement WALTER \email{clement.walter@cea.fr}
-#' 
+#'
 #' @details AKMCS strategy is based on a original Monte-Carlo population which
 #' is classified
 #' with a kriging-based metamodel. This means that no sampling is done during
@@ -17,27 +17,27 @@
 #'
 #' Thus, while this criterion is not verified, the point minimizing it is added to
 #' the learning database and then evaluated.
-#' 
+#'
 #' Finally, once all points are classified or when the maximum number of calls
 #' has been reached, crude Monte-Carlo is performed. A final test controlling
 #' the size of this population regarding the targeted coefficient of variation
 #' is done; if it is too small then a new population of sufficient size
 #' (considering ordre of magnitude of found probability) is generated, and
 #' algorithm run again.
-#' 
+#'
 #' @note Problem is supposed to be defined in the standard space. If not,
 #' use \code{\link{UtoX}} to do so. Furthermore, each time a set of vector
 #' is defined as a matrix, \sQuote{nrow} = \code{dimension} and
 #' \sQuote{ncol} = number of vector to be consistent with \code{as.matrix}
 #' transformation of a vector.
-#' 
+#'
 #' Algorithm calls lsf(X) (where X is a matrix as defined previously) and
 #' expects a vector in return. This allows the user to optimise the computation
 #' of a batch of points, either by vectorial computation, or by the use of
 #' external codes (optimised C or C++ codes for example) and/or parallel
 #' computation; see examples in \link{MonteCarlo}.
-#' 
-#' 
+#'
+#'
 #' @references
 #' \itemize{
 #' \item
@@ -45,37 +45,38 @@
 #' \emph{AK-MCS : an Active learning reliability method combining Kriging and
 #' Monte Carlo Simulation}\cr
 #' Structural Safety, Elsevier, 2011.\cr
-#' 
+#'
 #' \item
 #' B. Echard, N. Gayton, M. Lemaire and N. Relun:\cr
 #' \emph{A combined Importance Sampling and Kriging reliability method for
 #' small failure probabilities with time-demanding numerical models}\cr
 #' Reliability Engineering \& System Safety,2012\cr
-#' 
+#'
 #' \item
 #' B. Echard, N. Gayton and A. Bignonnet:\cr
 #' \emph{A reliability analysis method for fatigue design}\cr
 #' International Journal of Fatigue, 2014\cr
 #' }
-#' 
+#'
 #' @seealso
 #' \code{\link{SubsetSimulation}}
 #' \code{\link{MonteCarlo}}
 #' \code{\link{MetaIS}}
 #' \code{\link[DiceKriging]{km}} (in package \pkg{DiceKriging})
-#' 
+#'
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' res = AKMCS(dimension=2,lsf=kiureghian,plot=TRUE)
-#' 
+#'
 #' #Compare with crude Monte-Carlo reference value
 #' N = 500000
+#' dimension = 2
 #' U = matrix(rnorm(dimension*N),dimension,N)
-#' G = apply(U,2,kiureghian)
+#' G = kiureghian(U)
 #' P = mean(G<0)
 #' cov = sqrt((1-P)/(N*P))
 #' }
-#' 
+#'
 #' #See impact of kernel choice with serial function from Waarts:
 #' waarts = function(u) {
 #'   u = as.matrix(u)
@@ -83,22 +84,23 @@
 #'   b2 = sign(u[2,]-u[1,])*(u[1,]-u[2,])+7/sqrt(2)
 #'   val = apply(cbind(b1, b2), 1, min)
 #' }
-#' 
-#' \donttest{
+#'
+#' \dontrun{
 #' res = list()
 #' res$matern5_2 = AKMCS(2, waarts, plot=TRUE)
 #' res$matern3_2 = AKMCS(2, waarts, kernel="matern3_2", plot=TRUE)
 #' res$gaussian  = AKMCS(2, waarts, kernel="gauss", plot=TRUE)
 #' res$exp       = AKMCS(2, waarts, kernel="exp", plot=TRUE)
-#'   
+#' 
 #' #Compare with crude Monte-Carlo reference value
 #' N = 500000
+#' dimension = 2
 #' U = matrix(rnorm(dimension*N),dimension,N)
-#' G = apply(U,2,waarts)
+#' G = waarts(U)
 #' P = mean(G<0)
 #' cov = sqrt((1-P)/(N*P))
 #' }
-#' 
+#'
 #' @import ggplot2
 #' @import DiceKriging
 #' @importFrom grDevices dev.off gray pdf rainbow
@@ -111,60 +113,60 @@ AKMCS = function(dimension,
                  #' @param dimension dimension of the input space.
                  lsf,
                  #' @param lsf the function defining the failure/safety domain.
-                 N    = 500000,          
+                 N    = 500000,
                  #' @param N Monte-Carlo population size.
-                 N1   = 10*dimension,    
+                 N1   = 10*dimension,
                  #' @param N1 size of the first DOE.
-                 Nmax = 200,             
+                 Nmax = 200,
                  #' @param Nmax maximum number of calls to the LSF.
-                 learn_db  = NULL,       
+                 learn_db  = NULL,
                  #' @param learn_db coordinates of already known points.
-                 lsf_value = NULL,       
+                 lsf_value = NULL,
                  #' @param lsf_value value of the LSF on these points.
-                 failure   = 0,          
+                 failure   = 0,
                  #' @param failure failure threshold.
-                 precision = 0.05,       
+                 precision = 0.05,
                  #' @param precision maximum desired cov on the Monte-Carlo estimate.
-                 bayesian = TRUE,        
+                 bayesian = TRUE,
                  #' @param bayesian estimate the conditional expectation E_X [ P[meta(X)<failure] ].
-                 meta_model = NULL,      
+                 meta_model = NULL,
                  #' @param meta_model provide here a kriging metamodel from km if wanted.
-                 kernel = "matern5_2",   
+                 kernel = "matern5_2",
                  #' @param kernel specify the kernel to use for km.
                  learn_each_train = TRUE,
                  #' @param learn_each_train specify if kernel parameters are re-estimated at each train.
-                 crit_min = 2,           
+                 crit_min = 2,
                  #' @param crit_min minimum value of the criteria to be used for refinement.
                  lower.tail = TRUE,
                  #' @param lower.tail as for pxxxx functions, TRUE for estimating P(lsf(X) < failure), FALSE
                  #' for P(lsf(X) > failure)
-                 limit_fun_MH = NULL,    
+                 limit_fun_MH = NULL,
                  #' @param limit_fun_MH define an area of exclusion with a limit function.
-                 failure_MH = 0,         
+                 failure_MH = 0,
                  #' @param failure_MH the theshold for the limit_fun_MH function.
                  sampling_strategy = "MH",
                  #' @param sampling_strategy either MH for Metropolis-Hastings of AR for accept-reject.
-                 first_DOE = "Gaussian", 
+                 first_DOE = "Gaussian",
                  #' @param first_DOE either Gaussian or Uniform, to specify the population on which
                  #' clustering is done.
-                 seeds = NULL,           
+                 seeds = NULL,
                  #' @param seeds if some points are already known to be in the appropriate subdomain.
                  seeds_eval = limit_fun_MH(seeds),
                  #' @param seeds_eval value of the metamodel on these points.
-                 burnin = 30,            
+                 burnin = 30,
                  #' @param burnin burnin parameter for MH.
-                 plot = FALSE,           
+                 plot = FALSE,
                  #' @param plot set to TRUE for a full plot, ie refresh at each iteration.
-                 limited_plot = FALSE,   
+                 limited_plot = FALSE,
                  #' @param limited_plot set to TRUE for a final plot with final DOE, metamodel and LSF.
-                 add = FALSE,            
+                 add = FALSE,
                  #' @param add if plots are to be added to a current device.
-                 output_dir = NULL,      
+                 output_dir = NULL,
                  #' @param output_dir if plots are to be saved in jpeg in a given directory.
-                 verbose = 0) {          
+                 verbose = 0) {
                  #' @param verbose either 0 for almost no output, 1 for medium size output and 2 for all
                  #' outputs.
-  
+
 
 cat("==========================================================================================\n")
 cat("                              Beginning of AK-MCS algorithm\n")
@@ -187,7 +189,7 @@ if(lower.tail==FALSE){
 
 # plotting part
 if(plot==TRUE){
-  
+
   if(!is.null(output_dir)) {
     fileDir = paste(output_dir,"_AKMCS.pdf",sep="")
     pdf(fileDir)
@@ -198,7 +200,7 @@ if(plot==TRUE){
     ggplot2::geom_contour(aes(z=z, color=..level..), breaks = failure) +
     ggplot2::theme(legend.position = "none") +
     ggplot2::xlim(-8, 8) + ggplot2::ylim(-8, 8)
-  
+
   if(!is.null(learn_db)){
     row.names(learn_db) <- c('x', 'y')
     p <- p + ggplot2::geom_point(data = data.frame(t(learn_db), z = lsf_value), ggplot2::aes(color=z))
@@ -216,7 +218,7 @@ if(Nfailure==0){
 	cat(" ============================================= \n")
 	cat(" STEP 1 : GENERATION OF THE WORKING POPULATION \n")
 	cat(" ============================================= \n\n")
-	
+
 
 	if(is.null(limit_fun_MH)){
 		if(verbose>0){cat(" * Generate N =",N,"standard Gaussian samples\n\n")}
@@ -225,18 +227,18 @@ if(Nfailure==0){
 	else{
 	  if(sampling_strategy=="MH"){
 	    if(verbose>0){cat(" * Generate N =",N,"points from",dim(seeds)[2],"seeds with Metropolis-Hastings algorithm\n")}
-	    
+
 	    K = function(x){
 	      W = array(rnorm(x), dim = dim(x))
 	      sigma = apply(x, 1, sd)*2
 	      y = (x + sigma*W)/sqrt(1 + sigma^2)
 	      return(y)
 	    }
-	    
+
 	    seed <- sample.int(n = length(seeds_eval), size = N, replace = TRUE)
 	    U <- seeds[,seed]
 	    U_eval <- seeds_eval[seed]
-	    
+
 	    replicate(burnin, {
 	      U_star <- K(U)
 	      U_eval_star <- limit_fun_MH(U_star)
@@ -276,7 +278,7 @@ if(Nfailure==0){
 		},
 		stop("Wrong first DOE sampling strategy\n")
 	)
-	
+
 	if(first_DOE!="No"){
 	  if(verbose>0){cat(" * Add points to the learning database\n")}
 	  lsf_DoE <- lsf(DoE);Ncall = Ncall + N1
@@ -313,17 +315,17 @@ if(verbose>0){cat(" * Train the model :\n")}
                       upresponse=lsf_DoE,
                       type="Kriging")
   }
-  
+
   meta_model = meta$model
   meta_fun   = meta$fun
-  
+
   if(verbose>0){cat(" * Evaluate criterion on the work population\n")}
   meta_pred = meta_fun(U)
   criterion <- abs(failure - meta_pred$mean)/meta_pred$sd
   minC = min(criterion)
-  
+
   if(verbose>1){cat("    - minimum value of the criterion =",minC,"\n\n")}
-  
+
   #plotting part
   if(plot == TRUE){
     if(verbose>0){cat(" * 2D PLOT : FIRST APPROXIMATED LSF USING KRIGING \n")}
@@ -332,18 +334,18 @@ if(verbose>0){cat(" * Train the model :\n")}
     print(p_meta <- p + geom_contour(data = df_plot_meta, aes(z=z, color=..level.., alpha = 0.5), breaks = failure) +
       geom_contour(data = df_plot_meta, aes(z=crit, color=..level.., alpha = 0.5), linetype = 4, breaks = crit_min))
   }
-	
+
 	cat(" ======================= \n")
 	cat(" STEP 3 : UPDATE THE DoE \n")
 	cat(" ======================= \n")
-	
+
 	k = 0;
 	while(minC<crit_min & k<Nmax) {
-				
+
 		k = k+1;
 		if(verbose>0){cat("\n * ITERATION ",k,"\n")}
 		if(verbose>1){cat("   - min < 2 & k =",k,"< Nmax =",Nmax,"=> improve the model\n")}
-		
+
 		candidate = as.matrix(U[,which.min(criterion)])
 		eval      = lsf(candidate);Ncall = Ncall + 1
 		learn_db  = cbind(learn_db,candidate)
@@ -380,7 +382,7 @@ if(verbose>0){cat(" * Train the model :\n")}
 		criterion <- abs(failure - meta_pred$mean)/meta_pred$sd
 		minC = min(criterion)
 		cat("     + minimum value of the criterion =",minC,"\n")
-		
+
 		#plotting part
 		if(plot==TRUE){
 		  if(verbose>0){cat("   - 2D PLOT : END ITERATION",k,"\n")}
@@ -394,7 +396,7 @@ if(verbose>0){cat(" * Train the model :\n")}
 	cat(" ======================================================================================= \n")
 	cat(" STEP 4 : EVALUATE FAILURE PROBABILITY WITH A MONTE-CARLO ESTIMATOR USING THE META-MODEL\n")
 	cat(" ======================================================================================= \n")
-	
+
 	if(bayesian==TRUE){
 	  P = mean(pnorm((failure-meta_pred$mean)/meta_pred$sd))
 	}
@@ -402,12 +404,12 @@ if(verbose>0){cat(" * Train the model :\n")}
 	  P = mean(meta_pred$mean<failure)
 	}
 	cov = sqrt((1-P)/(N*P))
-	
+
 cat("   - p =",P,"\n")
 cat("   - failure =", failure,"\n")
 cat("   - 95% confidence interval on Monte Carlo estimate:",P*(1-2*cov),"< p <",P*(1+2*cov),"\n")
 cat(" * cov =",cov,"\n")
-	
+
 	if( cov > precision) {
 	  Nfailure = sum(lsf_value<failure)
 		if(P>0){

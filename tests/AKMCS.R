@@ -58,19 +58,19 @@ lsf(U0)
 ## CALCUL
 ## -----------------------------------
 
-Resu = AKMCS(dimension         = Dim, 
-             lsf               = lsf, 
-             lower.tail        = TRUE,
-             failure           = 0.0,
-             N                 = 1E+6, 
-             Nmax              = 500,
-             first_DOE         = "Gaussian",
-             # first_DOE         = "Uniform",
-             kernel            = "gauss",
-             # kernel            = "matern5_2",
-             bayesian          = FALSE,
-             plot              = FALSE,
-             limited_plot      = FALSE,
-             verbose           = 2)
+# Resu = AKMCS(dimension         = Dim, 
+#              lsf               = lsf, 
+#              lower.tail        = TRUE,
+#              failure           = 0.0,
+#              N                 = 1E+6, 
+#              Nmax              = 500,
+#              first_DOE         = "Gaussian",
+#              # first_DOE         = "Uniform",
+#              kernel            = "gauss",
+#              # kernel            = "matern5_2",
+#              bayesian          = FALSE,
+#              plot              = FALSE,
+#              limited_plot      = FALSE,
+#              verbose           = 2)
 # print(Resu)
 
