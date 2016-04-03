@@ -78,6 +78,7 @@ Bousquet, N. (2012) Accelerated monte carlo estimation of exceedance probabiliti
 }
 
 \examples{
+\dontrun{
  inputDistribution <- list()
  inputDistribution[[1]] <- list("norm",c(4,1))
  inputDistribution[[2]] <- list("norm",c(0,1))
@@ -102,5 +103,4 @@ Bousquet, N. (2012) Accelerated monte carlo estimation of exceedance probabiliti
  quantileEstimate <- resQuantile[[1]][N.calls, 3]
 
 }
-
-
+}

@@ -1,9 +1,9 @@
 \name{WilksFormula}
 \alias{WilksFormula}
-\title{Wilks formula}
+\title{Sample size by Wilks formula}
 
 \description{
-  Compute Wilks formula of 1941 for setting size of sample for quantile estimation with confidence level or for tolerance intervals.
+  Compute Wilks formula for setting size of a i.i.d. sample for quantile estimation with confidence level or for tolerance intervals
 }
 
 \usage{

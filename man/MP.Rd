@@ -58,6 +58,7 @@ for the \code{ecdf_MP} is then (-Inf, L_max] or [L_max, Inf).}
 \item{moves}{a vector containing the number of moves for each batch.}
 \item{p_int}{a 95\% confidence intervalle on the probability estimate.}
 \item{q_int}{a 95\% confidence intervall on the quantile estimate.}
+\item{chi2}{the output of the chisq.test function.}
 }
 \description{
 This function runs the Moving Particles algorithm for estimating extreme probability

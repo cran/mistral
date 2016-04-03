@@ -7,7 +7,7 @@
 }
 
 \usage{
-FORM(f, u.dep, inputDistribution, N.calls, eps = 1e-7,
+FORM(f, u.dep, inputDist, N.calls, eps = 1e-7,
      Method = "HLRF", IS = FALSE, q = 0.5, copula = "unif")
 }
 
@@ -18,8 +18,9 @@ FORM(f, u.dep, inputDistribution, N.calls, eps = 1e-7,
   \item{u.dep}{
      A vector, starting point to the research of the design point  
    }
-  \item{inputDistribution}{
-     A list which contains the name of the input distribution and their parameters. For the input "i", inputDistribution[[i]] = list("name_law",c(parameters1,..., parametersN))
+  \item{inputDist}{
+     A list which contains the name of the input distribution and their parameters.
+     For the input "i", inputDistribution[[i]] = list("name_law",c(parameters1,..., parametersN))
    }
   \item{N.calls}{
      Number of calls to f allowed
@@ -34,7 +35,7 @@ FORM(f, u.dep, inputDistribution, N.calls, eps = 1e-7,
     "TRUE" for using importance Sampling method (applied after FORM which provides the importance density). Default = "FALSE".
    }
   \item{q}{
-     Ratio of N.calls for the reserach of the design point by FORM. Default = 0.5. 1-q = the remaining ratio to use importance sampling. 
+     Ratio of N.calls for the research of the design point by FORM. Default = 0.5. 1-q = the remaining ratio to use importance sampling. 
    }
   \item{copula}{
      Choice of the copula. Default = "unif" (uniform copula)
@@ -42,14 +43,16 @@ FORM(f, u.dep, inputDistribution, N.calls, eps = 1e-7,
 }
 
 \value{
-  \item{proba.def}{Failure probability}
-  \item{indice.reliab}{Reliability index}
+  \item{pf}{Failure probability}
+  \item{beta}{Reliability index (beta)}
   \item{compt.f}{Number of calls to f}
-  \item{Design.Point}{Coordinates of the design point}
+  \item{design.point}{Coordinates of the design point}
   \item{fact.imp}{Importance factors}
   \item{variance}{Standard error of the probability estimator (if IS = TRUE)}
-  \item{Interval.conf}{Confidence interval of the estimator at 0.95 (if IS = TRUE)}
-  \item{DOE}{List which contains the design of experiments}
+  \item{conf}{Confidence interval of the estimator at 0.95 (if IS = TRUE)}
+  \item{x}{A data frame containing the input design of experiments}
+  \item{y}{A vector of model responses (corresponding to x)}
+  \item{dy}{A data frame of model response derivatives (wrt each input and corresponding to x); for the IS sample, the derivatives are not computed}
 }
 
 \author{
@@ -57,8 +60,7 @@ FORM(f, u.dep, inputDistribution, N.calls, eps = 1e-7,
 }
 
 \details{
-    This function estimate the probability that the output of the failure function is negative using FORM algorithm.
-    The importance sampling procedure estimate a probability using a gaussian distribution centered in the design point with a covariance matrix equal to the indendity.
+    This function estimate the probability that the output of the failure function is negative using FORM algorithm. The importance sampling procedure estimate a probability using a Gaussian distribution centered in the design point with a covariance matrix equal to the indentity.
 }
 
 \references{
@@ -77,15 +79,13 @@ M. Lemaire, A. Chateauneuf and J. Mitteau. Structural reliability, Wiley Online 
     X[1]/sum(X) - qbeta((1e-5),2,3)
  }
 
- res.list <- FORM(f,
-                  u.dep = c(0, 0.1),
-                  inputDistribution = distribution,
-                  N.calls = 1000,
-                  eps = 1e-7,
-                  Method = "HLRF",
-                  IS = "TRUE",
-                  q = 0.1,
-                  copula = "unif")
+ res <- FORM(f, u.dep = c(0,0.1), inputDist = distribution, 
+     N.calls = 1000, eps = 1e-7, Method = "HLRF", IS = "TRUE", 
+     q = 0.1, copula = "unif")
+                  
+names(res)
+print(res)
+print(res$pf)
 }
 }
 

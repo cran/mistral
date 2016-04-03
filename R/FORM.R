@@ -2,27 +2,27 @@
 #--------------------------------Algorithm FORM :--------------------------------#
 #---------------------------------------------------------------------------------#
 #' @export
-FORM <- function(f, u.dep, inputDistribution, N.calls, eps = 1e-7, 
+FORM <- function(f, u.dep, inputDist, N.calls, eps = 1e-7, 
                  Method = "HLRF", IS = FALSE, q = 0.5, copula = "unif"){
   
   # Few error messages : 
   if (mode(f) != "function") stop("f is not a function")
-  if( mode(inputDistribution) != "list") stop("inputDistribution is not a list")
-  if (missing(inputDistribution)) stop("inputDistribution is missing")
+  if( mode(inputDist) != "list") stop("inputDist is not a list")
+  if (missing(inputDist)) stop("inputDist is missing")
   if (missing(N.calls)) stop("N.calls is missing")
   
-  ndim <- length(inputDistribution)
+  ndim <- length(inputDist)
   
   #-------------------------------------------------------------------------------#
   #--------------- Create the list whith paramters of the input ------------------#
-  transformtionToInputSpace <- function(inputDistribution){
+  transformtionToInputSpace <- function(inputDist){
     
     InputDist <- list()
-    InputDist <- inputDistribution
+    InputDist <- inputDist
     
     for(i in 1:ndim){
       
-      nparam <- length(inputDistribution[[i]][[2]])
+      nparam <- length(inputDist[[i]][[2]])
       
       for(j in 1:nparam){
         InputDist[[i]]$q <- paste("q",InputDist[[i]][[1]], sep = "");
@@ -35,11 +35,11 @@ FORM <- function(f, u.dep, inputDistribution, N.calls, eps = 1e-7,
     return(InputDist)
   }
   
-  InputDist <- transformtionToInputSpace(inputDistribution)
+  InputDist <- transformtionToInputSpace(inputDist)
   
-  #------ Transformation to the gaussian space ------#
+  #------ Transformation to the Gaussian space ------#
 
-  G <- function(X){
+  Gtransf <- function(X){
     ndim <- length(InputDist)
     XU   <- pnorm(X)
     
@@ -50,27 +50,24 @@ FORM <- function(f, u.dep, inputDistribution, N.calls, eps = 1e-7,
   }
 
   #------ Gradient------#
-  GRAD <- function(func,X){
+  GRADfct <- function(func,X){
     GG <- 0
     df <- 0
     RES <- list()
-
+    dfunc <- 0
     RES[[1]] <- 0
-    RES.2 <- NULL
-    RES.3 <- NULL
-
-    dfunc <- 0;
+    
+    f.X <- func(X)
+    RES.2 <- X
+    RES.3 <- f.X
     
     for (i in 1:ndim) {
       dX <- X
       dX[i] <- dX[i] + 1e-6 
       f.dX <- func(dX)
-      f.X <- func(X)
       dfunc[i] <- (f.dX-f.X)/1e-6
       RES.2 <- rbind(RES.2, dX)
       RES.3 <- rbind(RES.3, f.dX)
-      RES.2 <- rbind(RES.2, X)
-      RES.3 <- rbind(RES.3, f.X)     
     }
     RES[[2]] <- RES.2
     RES[[3]] <- RES.3
@@ -79,29 +76,32 @@ FORM <- function(f, u.dep, inputDistribution, N.calls, eps = 1e-7,
     return(RES)
   }
   #----------------------------------------------------------------------#
-  DOE      <- list()                       # Design of experiments
 
-  DOE[[1]] <- NULL                         # DOE[[1]] contains x
-  DOE[[2]] <- NULL                         # DOE[[2]] contains f(x)
+  x <- NULL                 # contains  the input design
+  y <- NULL                 # contains f(x)
+  dy <- NULL                # contains all the derivatives of f(x)
 
-  List.res <- list()				 # List of the output
+  List.res <- list()				   # List of the output
   u.new    <- 0
-  cp       <- 0   			       #Numbers of calls to f
-  fact.imp <- 0					 #importance factor
-  N.FORM   <- floor(N.calls*q) 		 #Number of calls reserved to FORM
+  cp       <- 0   			       # Numbers of calls to f
+  fact.imp <- 0					       # Importance factor
+  N.FORM   <- floor(N.calls*q) # Number of calls reserved to FORM
   
-  u.ans <- G(u.dep); cp <- cp + 1
+  u.ans <- Gtransf(u.dep)
+  cp <- cp + 1
+  
+  x <- u.dep
+  y <- u.ans
 
-  DOE[[1]] <- u.dep
-  DOE[[2]] <- u.ans
+  res     <- GRADfct(Gtransf, u.dep)
+  cp <- cp + ndim + 1
 
-  res     <- GRAD(G, u.dep); cp <- cp + 2*ndim
-
+  x <- rbind(x,res[[2]])
+  y <- rbind(y,res[[3]])
+  dy <- rbind(dy,t(res[[1]]))
+  
   g <- res[[1]]
-
-  DOE[[1]] <- rbind(DOE[[1]],res[[2]])
-  DOE[[2]] <- rbind(DOE[[2]],res[[3]])
-
+  
   err   <- 1					       #distance of two tested points
 
   #----------------------------------Algorithme HLRF :----------------- #
@@ -109,22 +109,21 @@ FORM <- function(f, u.dep, inputDistribution, N.calls, eps = 1e-7,
     
     a <- g/(sqrt(g%*%g))
      
-    while( (err > eps) & (cp <= (N.FORM - (1 + 2*ndim)) ) ){ # modif BIS
+    while( (err > eps) & (cp <= (N.FORM - (2 + ndim)) ) ){ # modif BIS
       
       u.new <- (t(u.dep)%*%a)*a - u.ans*a/sqrt(g%*%g)
       err   <- sqrt(t(u.dep-u.new)%*%(u.dep-u.new))
       u.dep <- u.new
       
-      u.ans <- G(u.new); cp <- cp + 1
-      DOE[[1]] <- rbind(DOE[[1]],u.new)
-      DOE[[2]] <- rbind(DOE[[2]],u.ans)    
- 
-      res   <- GRAD(G, u.dep); cp <- cp + 2*ndim
+      res   <- GRADfct(Gtransf, u.dep)
+      cp <- cp + ndim + 1
 
-      g <- res[[1]]
-
-      DOE[[1]] <- rbind(DOE[[1]],res[[2]])
-      DOE[[2]] <- rbind(DOE[[2]],res[[3]])      
+      x <- rbind(x,res[[2]])
+      y <- rbind(y,res[[3]])   
+      dy <- rbind(dy,t(res[[1]]))
+      
+      u.ans <- res[[3]][1]
+      g <- res[[1]]   
 
       a <- ifelse( g == 0,c(0,0), g/(sqrt(g%*%g)) )
     }
@@ -132,9 +131,9 @@ FORM <- function(f, u.dep, inputDistribution, N.calls, eps = 1e-7,
     B 	 <- -a%*%u.dep 				 #indices of reliability
     P        <- pnorm(-B)   				 #failure probability
     fact.imp <- a^2				       
-    List.res <- list(P, B, cp, u.dep, fact.imp, DOE);
+    List.res <- list(P, B, cp, u.dep, fact.imp, x, y, dy);
     
-    names(List.res) <- c("proba.def", "indice.reliab", "compt.f", "Design.Point", "fact.imp", "DOE")
+    names(List.res) <- c("pf", "beta", "compt.f", "design.point", "fact.imp", "x", "y", "dy")
     if(IS == FALSE){return(List.res)}
     }
   #-----------------------------End of the algorithm HLRF :--------------------------#
@@ -144,22 +143,21 @@ FORM <- function(f, u.dep, inputDistribution, N.calls, eps = 1e-7,
     
     lambda <- 2*(u.ans - (t(g)%*%u.dep))/(g%*%g)
     
-    while( (err > eps) & (cp <= (N.FORM - (1 + 2*ndim)) ) ){ # modif BIS
+    while( (err > eps) & (cp <= (N.FORM - (2 + ndim)) ) ){ # modif BIS
         
       u.new <- -lambda*g/2
       err   <- sqrt(t(u.dep-u.new)%*%(u.dep-u.new))
       u.dep <- u.new
       
-      u.ans <- G(u.new); cp <- cp + 1
-      DOE[[1]] <- rbind(DOE[[1]],u.new)
-      DOE[[2]] <- rbind(DOE[[2]],u.ans)    
- 
-      res   <- GRAD(G, u.dep); cp <- cp + 2*ndim
+      res   <- GRADfct(Gtransf, u.dep)
+      cp <- cp + ndim + 1
 
-      g <- res[[1]]
-
-      DOE[[1]] <- rbind(DOE[[1]], res[[2]])
-      DOE[[2]] <- rbind(DOE[[2]], res[[3]])
+      x <- rbind(x, res[[2]])
+      y <- rbind(y, res[[3]])
+      dy <- rbind(dy,t(res[[1]]))
+      
+      u.ans <- res[[3]][1]
+      g <- res[[1]]   
       
       lambda <- 2*(u.ans - (t(g)%*%u.dep))/(g%*%g)
       if(cp >= N.FORM){break}
@@ -170,9 +168,9 @@ FORM <- function(f, u.dep, inputDistribution, N.calls, eps = 1e-7,
     P <- pnorm(-B)  				
 
     fact.imp <- a^2				
-    List.res <- list(P, B, cp, u.dep, fact.imp, DOE);
+    List.res <- list(P, B, cp, u.dep, fact.imp, x, y, dy);
     
-    names(List.res) <- c("proba.def", "indice.reliab", "compt.f", "Design.Point", "fact.imp", "DOE")
+    names(List.res) <- c("pf", "beta", "compt.f", "design.point", "fact.imp", "x", "y", "dy")
     if(IS == FALSE){return(List.res)}
     }
   #------------------------End of the algorithm of Abdo-Rackwitz----------------------#
@@ -180,7 +178,7 @@ FORM <- function(f, u.dep, inputDistribution, N.calls, eps = 1e-7,
   #---------------------------Importance Sampling :---------------------------------#
   if(IS == TRUE){
     alpha  <- 0.05				
-    N.IS   <- N.calls - cp			                 #Number of call reserved to the importance sampling
+    N.IS   <- N.calls - cp			           #Number of calls reserved to the importance sampling
     norm.u <- u.dep%*%u.dep
     P.temp <- 0
     P 	 <- 0
@@ -194,9 +192,9 @@ FORM <- function(f, u.dep, inputDistribution, N.calls, eps = 1e-7,
     zz <- v.temp -  matrix(rep(u.dep,N.IS), ncol = ndim, byrow = TRUE)
     s  <- exp( u.dep%*%u.dep/2 - as.numeric(v.temp%*%u.dep) )
 
-    test.v.temp <- apply(v.temp, MARGIN = 1, G)
-    DOE[[1]] <- rbind(DOE[[1]], v.temp)
-    DOE[[2]] <- rbind(DOE[[2]], matrix(test.v.temp,ncol=1))
+    test.v.temp <- apply(v.temp, MARGIN = 1, Gtransf)
+    x <- rbind(x, v.temp)
+    y <- rbind(y, matrix(test.v.temp,ncol=1))
     indic.Def <- 1*(test.v.temp <=0) 
     P.temp <- indic.Def*s
 
@@ -212,9 +210,9 @@ FORM <- function(f, u.dep, inputDistribution, N.calls, eps = 1e-7,
 
     Inter.conf <- c(IC.inf,IC.sup)
     fact.imp   <- a^2					          
-    List.res   <- list(P, B, cp, u.dep, fact.imp, VAR, Inter.conf, DOE)
+    List.res   <- list(P, B, cp, u.dep, fact.imp, VAR, Inter.conf, x, y, dy)
     
-    names(List.res) <-c("proba.def", "indice.reliab", "compt.f", "Design.Point", "fact.imp", "variance", "Interval.conf", "DOE");
+    names(List.res) <-c("pf", "beta", "compt.f", "design.point", "fact.imp", "variance", "conf", "x", "y", "dy");
     return(List.res)
   } 
   #----------------------------End Importance Sampling----------------------------#

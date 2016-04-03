@@ -2,8 +2,9 @@
 WilksFormula <- function(alpha=0.95,beta=0.95,bilateral=FALSE,order=1){
 
 #--------------------------------------------------------------
-# Gives the minimal size of a sample in order to apply the    |
-# Wilks formula (quantile estimation with a confidence level) |
+# Gives the minimal size of a i.i.d. sample in order to apply |
+# the Wilks formula (quantile estimation with a given         |
+# confidence level)                                           |
 #                                                             |
 #-------------------------------------------------------------|
 #Input arguments                                              |

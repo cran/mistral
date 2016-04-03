@@ -79,6 +79,7 @@
 #' }
 #' 
 #' @import ggplot2
+#' @import foreach
 #' @export
 SubsetSimulation = function(dimension,
                             #' @param dimension the dimension of the input space.
@@ -101,14 +102,20 @@ SubsetSimulation = function(dimension,
                             #' kernel is the one defined K(X) = (X + sigma*W)/sqrt(1 + sigma^2) with W ~ N(0, 1).
                             burnin = 20,
                             #' @param burnin a burnin parameter for the the regeneration step.
+                            save.all = FALSE,
+                            #' @param save.all if TRUE, all the samples generated during the algorithms are saved
+                            #' and return at the end. Otherwise only the working population is kept at each
+                            #' iteration.
                             plot = FALSE,
                             #' @param plot to plot the contour of the \code{lsf} and the generated sample.
                             output_dir = NULL,
                             #' @param output_dir to save the plot into a pdf file. This variable will
                             #' be paster with
                             #' "_Subset_Simulation.pdf"
+                            plot.lab = c('x', 'y'),
+                            #' @param plot.lab the x and y labels for the plot
                             verbose = 0) {
-                            #' @param verbose Either 0 for almost no output, 1 for medium size output and 2 for all outputs
+  #' @param verbose Either 0 for almost no output, 1 for medium size output and 2 for all outputs
   
   cat("==========================================================================================\n")
   cat("                              Beginning of Subset Simulation algorithm \n")
@@ -124,10 +131,10 @@ SubsetSimulation = function(dimension,
   }
   
   if(verbose>0){cat("  * Generate the first N =",N,"samples by crude MC \n")}
-  U = matrix(rnorm(dimension*N), nrow = dimension, dimnames = list(rep(c('x', 'y'), ceiling(dimension/2))[1:dimension]))
+  Utot <- U <- matrix(rnorm(dimension*N), nrow = dimension, dimnames = list(rep(c('x', 'y'), ceiling(dimension/2))[1:dimension]))
   
   if(verbose>0){cat("  * Evaluate the limit state function \n")}
-  G = lsf(U);
+  Gtot <- G <- lsf(U);
   Ncall = N
   
   if(verbose>0){cat("  * Find the quantile q_0 verifying P[lsf(U) < q_0] = p_0 \n")}
@@ -142,6 +149,9 @@ SubsetSimulation = function(dimension,
   n_subset = 1
   cat("   - P =",P,"\n")
   
+  # Set sigma for transition Kernel K
+  sigma.hist <- sigma <- 0.3
+  
   if(plot==TRUE){
     
     if(!is.null(output_dir)) {
@@ -152,10 +162,10 @@ SubsetSimulation = function(dimension,
     df_plot = data.frame(expand.grid(x=xplot, y=yplot), z = lsf(t(expand.grid(x=xplot, y=yplot))))
     indCol = factor(indG+n_subset, levels = 1:20)
     p <- ggplot(data = df_plot, aes(x,y)) +
-            geom_contour(aes(z=z, color=..level..), breaks = q_0) +
-            geom_point(data = data.frame(t(U), z = G, ind = indCol), color=factor(indCol)) +
-            theme(legend.position = "none") +
-            xlim(-8, 8) + ylim(-8, 8)
+      geom_contour(aes(z=z, color=..level..), breaks = q_0) +
+      geom_point(data = data.frame(t(U), z = G, ind = indCol), color=factor(indCol)) +
+      theme(legend.position = "none") +
+      xlim(-8, 8) + ylim(-8, 8) + xlab(plot.lab[1]) + ylab(plot.lab[2])
     print(p)
   }
   
@@ -163,28 +173,52 @@ SubsetSimulation = function(dimension,
     
     n_subset = n_subset + 1
     
-    if(verbose>0){cat("  * Resample N =",N,"samples with MCMC \n")}
-    seed = sample(which(indG==T), size = N, replace = TRUE)
-    U = U[,seed]
-    G = G[seed]
+    if(verbose>0){cat("  * Resample N(1-p_0) =",N*(1-p_0),"samples with MCMC \n")}
+    U_tmp <- U[,indG]
+    G_tmp <- G[indG]
     
     if(missing(K)) {
       K = function(x){
         W = array(rnorm(x), dim = dim(x))
-        sigma = apply(x, 1, sd)*2
+        # sigma = apply(x, 1, sd)*2
+        # sigma <- 0.3
         y = (x + sigma*W)/sqrt(1 + sigma^2)
         return(y)
       }
     }
     
-    replicate(burnin, {
-      U_star <- K(U)
-      G_star <- lsf(U_star)
-      Ncall <<- Ncall + N
-      indG_star <- G_star<q_0
-      U[,indG_star] <<- U_star[,indG_star]
-      G[indG_star] <<- G_star[indG_star]
-    })
+    U <- G <- NULL
+    acceptance.rate <- 0
+    foreach::times(ceiling(N/sum(indG))) %do% {
+      foreach::times(burnin) %do% {
+        U_star <- K(U_tmp) # generate candidate
+        G_star <- lsf(U_star) # calculate lsf
+        if(save.all==TRUE){
+          Utot <- cbind(U, U_star)
+          Gtot <- c(Gtot, G_star)
+        }
+        Ncall <- Ncall + length(G_star) # update Ncall
+        indG_star <- G_star<q_0 # get sample in the right domain
+        acceptance.rate <- acceptance.rate + sum(indG_star)
+        U_tmp[,indG_star] <- U_star[,indG_star] # update sample in the right domain
+        G_tmp[indG_star] <- G_star[indG_star]
+      }
+      U <- cbind(U, U_tmp)
+      G <- c(G, G_tmp)
+    }
+    acceptance.rate <- acceptance.rate/burnin/N
+    if(acceptance.rate>0.4) sigma <- sigma*1.1
+    if(acceptance.rate<0.2) sigma <- sigma*0.9
+    sigma.hist <- c(sigma.hist, sigma)
+    
+    #     replicate(burnin, {
+    #       U_star <- K(U)
+    #       G_star <- lsf(U_star)
+    #       Ncall <<- Ncall + N
+    #       indG_star <- G_star<q_0
+    #       U[,indG_star] <<- U_star[,indG_star]
+    #       G[indG_star] <<- G_star[indG_star]
+    #     })
     
     if(verbose>1){cat("  * Find the quantile q_0 verifying P[lsf(U) < q_0] = p_0 \n")}
     q_0 = max(quantile(G, probs = p_0), q)
@@ -199,7 +233,7 @@ SubsetSimulation = function(dimension,
     if(plot==TRUE){
       indCol = factor(indG+n_subset, levels = 1:20)
       p <- p + geom_contour(aes(z=z, color=..level..), breaks = q_0) +
-              geom_point(data = data.frame(t(U), z = G, ind = indCol), color= factor(indCol))
+        geom_point(data = data.frame(t(U), z = G, ind = indCol), color= factor(indCol))
       print(p)
     }
     
@@ -228,10 +262,18 @@ SubsetSimulation = function(dimension,
                 Ncall = Ncall,
                 #' \item{Ncall}{the total number of calls to the \code{lsf}.}
                 X = U,
-                #' \item{U}{the generated samples.}
-                Y = G*(-1)^(!lower.tail)
+                #' \item{X}{the working population.}
+                Y = G*(-1)^(!lower.tail),
                 #' \item{Y}{the value lsf(X).}
-                )
+                Xtot = Utot,
+                #' \item{Xtot}{if \code{save.list==TRUE}, all the \code{Ncall} samples generated by
+                #' the algorithm.}
+                Ytot = Gtot*(-1)^(!lower.tail),
+                #' \item{Ytot}{the value lsf(Xtot).}
+                sigma.hist = sigma.hist
+                #' \item{sigma.hist}{if default kernel is used, sigma is initialized with 0.3 and
+                #' then further adaptively updated to have an average acceptance rate of 0.3}
+  )
   return(result)
   
 }
