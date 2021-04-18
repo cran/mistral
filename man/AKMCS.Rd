@@ -5,14 +5,37 @@
 \title{Active learning reliability method combining Kriging and Monte Carlo
 Simulation}
 \usage{
-AKMCS(dimension, lsf, N = 5e+05, N1 = 10 * dimension, Nmax = 200,
-  learn_db = NULL, lsf_value = NULL, failure = 0, precision = 0.05,
-  bayesian = TRUE, meta_model = NULL, kernel = "matern5_2",
-  learn_each_train = TRUE, crit_min = 2, lower.tail = TRUE,
-  limit_fun_MH = NULL, failure_MH = 0, sampling_strategy = "MH",
-  first_DOE = "Gaussian", seeds = NULL, seeds_eval = limit_fun_MH(seeds),
-  burnin = 30, plot = FALSE, limited_plot = FALSE, add = FALSE,
-  output_dir = NULL, verbose = 0)
+AKMCS(
+  dimension,
+  lsf,
+  N = 5e+05,
+  N1 = 10 * dimension,
+  Nmax = 200,
+  Nmin = 2,
+  X = NULL,
+  y = NULL,
+  failure = 0,
+  precision = 0.05,
+  bayesian = TRUE,
+  compute.PPP = FALSE,
+  meta_model = NULL,
+  kernel = "matern5_2",
+  learn_each_train = TRUE,
+  crit_min = 2,
+  lower.tail = TRUE,
+  limit_fun_MH = NULL,
+  failure_MH = 0,
+  sampling_strategy = "MH",
+  first_DOE = "Gaussian",
+  seeds = NULL,
+  seeds_eval = limit_fun_MH(seeds),
+  burnin = 30,
+  plot = FALSE,
+  limited_plot = FALSE,
+  add = FALSE,
+  output_dir = NULL,
+  verbose = 0
+)
 }
 \arguments{
 \item{dimension}{dimension of the input space.}
@@ -25,15 +48,22 @@ AKMCS(dimension, lsf, N = 5e+05, N1 = 10 * dimension, Nmax = 200,
 
 \item{Nmax}{maximum number of calls to the LSF.}
 
-\item{learn_db}{coordinates of already known points.}
+\item{Nmin}{minimum number of calls during enrichment step.}
 
-\item{lsf_value}{value of the LSF on these points.}
+\item{X}{coordinates of already known points.}
+
+\item{y}{value of the LSF on these points.}
 
 \item{failure}{failure threshold.}
 
 \item{precision}{maximum desired cov on the Monte-Carlo estimate.}
 
 \item{bayesian}{estimate the conditional expectation E_X [ P[meta(X)<failure] ].}
+
+\item{compute.PPP}{to simulate a Poisson process at each iteration to estimate
+the conditional expectation and the SUR criteria based on the conditional
+variance: h (average probability of misclassification at level \code{failure})
+and I (integral of h over the whole interval [failure, infty))}
 
 \item{meta_model}{provide here a kriging metamodel from km if wanted.}
 
@@ -53,7 +83,8 @@ for P(lsf(X) > failure)}
 \item{sampling_strategy}{either MH for Metropolis-Hastings of AR for accept-reject.}
 
 \item{first_DOE}{either Gaussian or Uniform, to specify the population on which
-clustering is done.}
+clustering is done. Set to "No" for no initial DoE (use together with a first DoE
+given in \code{X} for instance).}
 
 \item{seeds}{if some points are already known to be in the appropriate subdomain.}
 
@@ -78,9 +109,11 @@ more outputs as described below:
 \item{p}{the estimated failure probability.}
 \item{cov}{the coefficient of variation of the Monte-Carlo probability estimate.}
 \item{Ncall}{the total number of calls to the \code{lsf}.}
-\item{learn_db}{the final learning database, ie. all points where \code{lsf} has
+\item{X}{the final learning database, ie. all points where \code{lsf} has
 been calculated.}
-\item{lsf_value}{the value of the \code{lsf} on the learning database.}
+\item{y}{the value of the \code{lsf} on the learning database.}
+\item{h}{the sequence of the estimated relative SUR criteria.}
+\item{I}{the sequence of the estimated integrated SUR criteria.}
 \item{meta_fun}{the metamodel approximation of the \code{lsf}. A call output is a
 list containing the value and the standard deviation.}
 \item{meta_model}{the final metamodel. An S4 object from \pkg{DiceKriging}. Note
@@ -167,9 +200,6 @@ cov = sqrt((1-P)/(N*P))
 }
 
 }
-\author{
-Clement WALTER \email{clement.walter@cea.fr}
-}
 \references{
 \itemize{
 \item
@@ -196,4 +226,6 @@ International Journal of Fatigue, 2014\cr
 \code{\link{MetaIS}}
 \code{\link[DiceKriging]{km}} (in package \pkg{DiceKriging})
 }
-
+\author{
+Clement WALTER \email{clementwalter@icloud.com}
+}

@@ -5,7 +5,7 @@
 #' 
 #' @aliases ss subset
 #' 
-#' @author Clement WALTER \email{clement.walter@cea.fr}
+#' @author Clement WALTER \email{clementwalter@icloud.com}
 #' 
 #' @details This algorithm uses the property of conditional probabilities on nested subsets
 #' to calculate a given probability defined by a limit state function.
@@ -100,14 +100,22 @@ SubsetSimulation = function(dimension,
                             #' K(X) should propose a matrix of candidate sample (same dimension as X) on which
                             #' \code{lsf} will be then evaluated and transition accepted of rejected. Default
                             #' kernel is the one defined K(X) = (X + sigma*W)/sqrt(1 + sigma^2) with W ~ N(0, 1).
-                            burnin = 20,
-                            #' @param burnin a burnin parameter for the the regeneration step.
+                            thinning = 20,
+                            #' @param thinning a thinning parameter for the the regeneration step.
                             save.all = FALSE,
                             #' @param save.all if TRUE, all the samples generated during the algorithms are saved
                             #' and return at the end. Otherwise only the working population is kept at each
                             #' iteration.
                             plot = FALSE,
-                            #' @param plot to plot the contour of the \code{lsf} and the generated sample.
+                            #' @param plot to plot the generated samples.
+                            plot.level = 5,
+                            #' @param plot.level maximum number of expected levels for color consistency. If number of
+                            #' levels exceeds this value, the color scale will change according to
+                            #' \code{ggplot2} default policy.
+                            plot.lsf = TRUE,
+                            #' @param plot.lsf a boolean indicating if the \code{lsf} should be added to the
+                            #' plot. This requires the evaluation of the \code{lsf} over a grid and
+                            #' consequently should be used only for illustation purposes.
                             output_dir = NULL,
                             #' @param output_dir to save the plot into a pdf file. This variable will
                             #' be paster with
@@ -117,17 +125,22 @@ SubsetSimulation = function(dimension,
                             verbose = 0) {
   #' @param verbose Either 0 for almost no output, 1 for medium size output and 2 for all outputs
   
-  cat("==========================================================================================\n")
-  cat("                              Beginning of Subset Simulation algorithm \n")
-  cat("==========================================================================================\n\n")
+  cat("========================================================================\n")
+  cat("                Beginning of Subset Simulation algorithm \n")
+  cat("========================================================================\n")
   
   # Fix NOTE issue with R CMD check
-  x <- y <- z <- ..level.. <- NULL
+  x <- y <- z <- ..level.. <- nsub <- NULL
   
   if(lower.tail==FALSE){
     lsf_dec = lsf
     lsf = function(x) -1*lsf_dec(x)
     q <- -q
+  }
+  
+  if(plot==TRUE & dimension>2){
+    message("Cannot plot in dimension > 2")
+    plot <- FALSE
   }
   
   if(verbose>0){cat("  * Generate the first N =",N,"samples by crude MC \n")}
@@ -142,11 +155,12 @@ SubsetSimulation = function(dimension,
   cat("   - q_0 =",q_0,"\n")
   
   if(verbose>0){cat("  * Evaluate actual probability \n")}
-  indG = G<q_0
+  indG <- G<q_0
   P = mean(indG)
   cov = (1-P)/N/P
   
   n_subset = 1
+  level <- 1*indG + n_subset
   cat("   - P =",P,"\n")
   
   # Set sigma for transition Kernel K
@@ -159,17 +173,22 @@ SubsetSimulation = function(dimension,
       pdf(fileDir)
     }
     xplot <- yplot <- c(-80:80)/10
-    df_plot = data.frame(expand.grid(x=xplot, y=yplot), z = lsf(t(expand.grid(x=xplot, y=yplot))))
-    indCol = factor(indG+n_subset, levels = 1:20)
-    p <- ggplot(data = df_plot, aes(x,y)) +
-      geom_contour(aes(z=z, color=..level..), breaks = q_0) +
-      geom_point(data = data.frame(t(U), z = G, ind = indCol), color=factor(indCol)) +
+    df_plot = data.frame(expand.grid(x=xplot, y=yplot))
+    df.points <- data.frame(t(U), z = G, level = factor(1*level, levels = 1:plot.level), nsub = factor(n_subset, levels=1:plot.level))
+    p <- ggplot(data = df.points, aes(x,y)) +
+      scale_colour_discrete(drop=FALSE) +
       theme(legend.position = "none") +
       xlim(-8, 8) + ylim(-8, 8) + xlab(plot.lab[1]) + ylab(plot.lab[2])
+    print(p + geom_point(aes(color=nsub)))
+    p <- p + geom_point(aes(color=level))
+    if(plot.lsf==TRUE){
+      zplot = lsf(t(df_plot))
+      p <- p + geom_contour(data = data.frame(df_plot, z = zplot-q_0 + n_subset), aes(z=z, color=factor(..level..)), breaks = n_subset)
+    }
     print(p)
   }
   
-  while(q_0>0){
+  while(q_0>q){
     
     n_subset = n_subset + 1
     
@@ -190,7 +209,7 @@ SubsetSimulation = function(dimension,
     U <- G <- NULL
     acceptance.rate <- 0
     foreach::times(ceiling(N/sum(indG))) %do% {
-      foreach::times(burnin) %do% {
+      foreach::times(thinning) %do% {
         U_star <- K(U_tmp) # generate candidate
         G_star <- lsf(U_star) # calculate lsf
         if(save.all==TRUE){
@@ -206,24 +225,16 @@ SubsetSimulation = function(dimension,
       U <- cbind(U, U_tmp)
       G <- c(G, G_tmp)
     }
-    acceptance.rate <- acceptance.rate/burnin/N
+    acceptance.rate <- acceptance.rate/thinning/N
     if(acceptance.rate>0.4) sigma <- sigma*1.1
     if(acceptance.rate<0.2) sigma <- sigma*0.9
     sigma.hist <- c(sigma.hist, sigma)
-    
-    #     replicate(burnin, {
-    #       U_star <- K(U)
-    #       G_star <- lsf(U_star)
-    #       Ncall <<- Ncall + N
-    #       indG_star <- G_star<q_0
-    #       U[,indG_star] <<- U_star[,indG_star]
-    #       G[indG_star] <<- G_star[indG_star]
-    #     })
     
     if(verbose>1){cat("  * Find the quantile q_0 verifying P[lsf(U) < q_0] = p_0 \n")}
     q_0 = max(quantile(G, probs = p_0), q)
     if(verbose>0){cat("  * Evaluate actual probability \n")}
     indG = G<q_0
+    level <- n_subset + indG
     P_ss = mean(indG)
     P = P*P_ss
     cov = cov + (1-P_ss)/P_ss/N
@@ -231,19 +242,22 @@ SubsetSimulation = function(dimension,
     cat("   - P =",P,"\n")
     
     if(plot==TRUE){
-      indCol = factor(indG+n_subset, levels = 1:20)
-      p <- p + geom_contour(aes(z=z, color=..level..), breaks = q_0) +
-        geom_point(data = data.frame(t(U), z = G, ind = indCol), color= factor(indCol))
+      print(p + geom_point(data = data.frame(t(U), z = G, level = factor(1*level), nsub = factor(n_subset)), aes(color=nsub)))
+      p <- p +
+        geom_point(data = data.frame(t(U), z = G, level = factor(1*level), nsub = factor(n_subset)), aes(color=level))
+      if(plot.lsf==TRUE){
+        p <- p + geom_contour(data = data.frame(df_plot, z = zplot-q_0 + n_subset), aes(z=z, color=factor(..level..)), breaks = n_subset)
+      }
       print(p)
     }
     
   }
-  
+  cov = sqrt(cov)
   if(!is.null(output_dir)) {dev.off()}
   
-  cat("==========================================================================================\n")
-  cat("                              End of Subset Simulation algorithm \n")
-  cat("==========================================================================================\n\n")
+  cat("========================================================================\n")
+  cat("                 End of Subset Simulation algorithm \n")
+  cat("========================================================================\n")
   
   cat("   - p =",P,"\n")
   cat("   - q =", q, "\n")
@@ -257,8 +271,8 @@ SubsetSimulation = function(dimension,
   #' some more outputs as described below:
   result = list(p = P,
                 #' \item{p}{the estimated failure probability.}
-                cov = cov,
-                #' \item{cov}{the estimated coefficient of variation of the estimate.}
+                cv = cov,
+                #' \item{cv}{the estimated coefficient of variation of the estimate.}
                 Ncall = Ncall,
                 #' \item{Ncall}{the total number of calls to the \code{lsf}.}
                 X = U,

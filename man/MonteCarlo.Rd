@@ -4,9 +4,19 @@
 \alias{MonteCarlo}
 \title{Crude Monte Carlo method}
 \usage{
-MonteCarlo(dimension, lsf, N_max = 5e+05, N_batch = 1000, q = 0,
-  lower.tail = TRUE, precision = 0.05, plot = FALSE, output_dir = NULL,
-  verbose = 0)
+MonteCarlo(
+  dimension,
+  lsf,
+  N_max = 5e+05,
+  N_batch = foreach::getDoParWorkers(),
+  q = 0,
+  lower.tail = TRUE,
+  precision = 0.05,
+  plot = FALSE,
+  output_dir = NULL,
+  save.X = TRUE,
+  verbose = 0
+)
 }
 \arguments{
 \item{dimension}{the dimension of the input space.}
@@ -15,12 +25,12 @@ MonteCarlo(dimension, lsf, N_max = 5e+05, N_batch = 1000, q = 0,
 
 \item{N_max}{maximum number of calls to the \code{lsf}.}
 
-\item{N_batch}{number of points onte evalutae the \code{lsf} at each iteration.}
+\item{N_batch}{number of points evaluated at each iteration.}
 
-\item{q}{the quantile}
+\item{q}{the quantile.}
 
 \item{lower.tail}{as for pxxxx functions, TRUE for estimating P(lsf(X) < q), FALSE
-for P(lsf(X) > q)}
+for P(lsf(X) > q).}
 
 \item{precision}{a targeted maximum value for the coefficient of variation.}
 
@@ -28,7 +38,10 @@ for P(lsf(X) > q)}
 
 \item{output_dir}{to save a copy of the plot in a pdf. This name will be
 pasted with
-"_Monte_Carlo_brut.pdf"}
+"_Monte_Carlo_brut.pdf".}
+
+\item{save.X}{to save all the samples generated as a matrix. Can be set to FALSE
+to reduce output size.}
 
 \item{verbose}{to control the level of outputs in the console; either 0 or 1 or 2 for
 almost no outputs to a high level output.}
@@ -37,7 +50,7 @@ almost no outputs to a high level output.}
 An object of class \code{list} containing the failure probability and some
 more outputs as described below:
 \item{p}{the estimated probabilty.}
-\item{ecdf_MC}{the empiracal cdf got with the generated samples.}
+\item{ecdf}{the empiracal cdf got with the generated samples.}
 \item{cov}{the coefficient of variation of the Monte Carlo estimator.}
 \item{Ncall}{the total numnber of calls to the \code{lsf}, ie the total
 number of generated samples.}
@@ -111,9 +124,6 @@ lsf_par = function(x){
 }
 
 }
-\author{
-Clement WALTER \email{clement.walter@cea.fr}
-}
 \references{
 \itemize{
    \item
@@ -126,4 +136,6 @@ Clement WALTER \email{clement.walter@cea.fr}
 \code{\link{SubsetSimulation}}
 \code{\link{foreach}}
 }
-
+\author{
+Clement WALTER \email{clementwalter@icloud.com}
+}

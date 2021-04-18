@@ -2,7 +2,7 @@
 #' 
 #' @description Estimate a failure probability using a crude Monte Carlo method.
 #' 
-#' @author Clement WALTER \email{clement.walter@cea.fr}
+#' @author Clement WALTER \email{clementwalter@icloud.com}
 #' 
 #' @details This implementation of the crude Monte Carlo method works with evaluating
 #' batchs of points sequentialy until a given precision is reached on the final
@@ -86,145 +86,157 @@ MonteCarlo = function(dimension,
                       #' @param lsf the function defining safety/failure domain.
                       N_max 	= 500000,
                       #' @param N_max maximum number of calls to the \code{lsf}.
-		                  N_batch 	= 1000,
-		                  #' @param N_batch number of points onte evalutae the \code{lsf} at each iteration.
+                      N_batch 	= foreach::getDoParWorkers(),
+                      #' @param N_batch number of points evaluated at each iteration.
                       q	= 0,
-		                  #' @param q the quantile
-		                  lower.tail = TRUE,
-		                  #' @param lower.tail as for pxxxx functions, TRUE for estimating P(lsf(X) < q), FALSE
-		                  #' for P(lsf(X) > q)
-		                  precision	= 0.05,
-		                  #' @param precision a targeted maximum value for the coefficient of variation.
+                      #' @param q the quantile.
+                      lower.tail = TRUE,
+                      #' @param lower.tail as for pxxxx functions, TRUE for estimating P(lsf(X) < q), FALSE
+                      #' for P(lsf(X) > q).
+                      precision	= 0.05,
+                      #' @param precision a targeted maximum value for the coefficient of variation.
                       plot 	= FALSE,
-		                  #' @param plot to plot the contour of the \code{lsf} as well as the generated samples.
+                      #' @param plot to plot the contour of the \code{lsf} as well as the generated samples.
                       output_dir = NULL,
-		                  #' @param output_dir to save a copy of the plot in a pdf. This name will be
-		                  #' pasted with
-		                  #' "_Monte_Carlo_brut.pdf"
-		                  verbose 	= 0){
-                      #' @param verbose to control the level of outputs in the console; either 0 or 1 or 2 for
-                      #' almost no outputs to a high level output.
-
-cat("========================================================================\n")
-cat("                 Beginning of Monte-Carlo algorithm\n")
-cat("========================================================================\n\n")
+                      #' @param output_dir to save a copy of the plot in a pdf. This name will be
+                      #' pasted with
+                      #' "_Monte_Carlo_brut.pdf".
+                      save.X = TRUE,
+                      #' @param save.X to save all the samples generated as a matrix. Can be set to FALSE
+                      #' to reduce output size.
+                      verbose 	= 0){
+  #' @param verbose to control the level of outputs in the console; either 0 or 1 or 2 for
+  #' almost no outputs to a high level output.
   
-# Step 0 : Initialization
-cov = Inf;
-Ncall = 0;
-
-
-# Fix NOTE issue with R CMD check
-x <- y <- z <- ..level.. <- NULL
-
-if(lower.tail==FALSE){
-  lsf_dec = lsf
-  lsf = function(x) -1*lsf_dec(x)
-  q <- -q
-}
-
-if(verbose>0){cat(" * STEP 1 : FIRST SAMPLING AND ESTIMATION \n")}
-
-if(verbose>1){cat("   - Generate N_batch = ",N_batch," standard samples\n")}
-U = matrix(rnorm(dimension*N_batch),dimension,N_batch, dimnames = list(rep(c('x', 'y'), ceiling(dimension/2))[1:dimension]))
-
-if(verbose>1){cat("   - Evaluate LSF on these samples\n")}
-G = lsf(U); Ncall = Ncall + N_batch
-
-if(verbose>1){cat("   - Evaluate q probability and corresponding CoV \n")}
-P = mean(G < q)
-cov = sqrt((1-P)/(Ncall*P))
-
-if(plot==TRUE){
+  cat("========================================================================\n")
+  cat("                 Beginning of Monte-Carlo algorithm\n")
+  cat("========================================================================\n\n")
   
-  if(!is.null(output_dir)) {
-    fileDir = paste(output_dir,"_Monte_Carlo_brut.pdf",sep="")
-    pdf(fileDir)
+  # Step 0 : Initialization
+  cov = Inf;
+  Ncall = 0;
+  
+  
+  # Fix NOTE issue with R CMD check
+  x <- y <- z <- ..level.. <- X <- NULL
+  
+  if(lower.tail==FALSE){
+    lsf_dec = lsf
+    lsf = function(x) -1*lsf_dec(x)
+    q <- -q
   }
-  xplot <- yplot <- c(-80:80)/10
-  df_plot = data.frame(expand.grid(x=xplot, y=yplot), z = lsf(t(expand.grid(x=xplot, y=yplot))))
-  p <- ggplot(data = df_plot, aes(x,y))
-  indCol = (G>q)+1
-  p <- p + geom_contour(aes(z=z, color = ..level..), breaks = 0) +
-    geom_point(data = data.frame(t(U), z = G, ind = indCol), colour = factor(indCol)) +
-    theme(legend.position = "none") +
-    xlim(-8, 8) + ylim(-8, 8)
-  print(p)
-}
-
-Nrem = min(N_max - Ncall, N_batch)
-
-if( (verbose>0) && (cov > precision) && (Nrem > 0) ) {cat(" * STEP 2 : LOOP UNTIL COV < PRECISION \n")}
-
-while( (cov > precision) && (Nrem > 0) ) {
-
-	if(verbose>0){cat(" * cov =",cov,">",precision,"and",N_max - Ncall,"remaining calls to the LSF \n")}
-	if(verbose>1){cat("   - Generate N =",Nrem,"standard samples\n")}
-	U = matrix(rnorm(dimension*Nrem),dimension,Nrem, dimnames = list(rep(c('x', 'y'), ceiling(dimension/2))[1:dimension]))
-	
-	if(verbose>1){cat("   - Evaluate LSF on these samples\n")}
-	G = c(G,lsf(U)); Ncall = Ncall + Nrem
-	
-	if(plot==TRUE){
-	  if(verbose>1){cat("   - Plot these samples\n")}
-	  indCol = c(tail(G, Nrem)>q)+1
-	  p <- p + geom_point(data = data.frame(t(U), z = tail(G, Nrem), ind = indCol), colour= factor(indCol))
-	  print(p)
-	}
-	
-	if(verbose>1){cat("   - Evaluate q probability and corresponding CoV \n")}
-	P = mean(G < q)
-	cov = sqrt((1-P)/(Ncall*P))
-
-	if(verbose>1){cat("   - P =",P,"\n")}
-	if(verbose>1){cat("   - cov =",cov,"\n")}
-
-	Nrem = min(N_max - Ncall, N_batch)
-}
-
-if(plot == TRUE) {
-	if(!is.null(output_dir)) {dev.off()}
-}
-
-cat("========================================================================\n")
-cat("                    End of Monte-Carlo algorithm\n")
-cat("========================================================================\n\n")
-
-cat("   - p =",P,"\n")
-cat("   - q =", q, "\n")
-cat("   - 95% confidence intervalle :",P*(1-2*cov),"< p <",P*(1+2*cov),"\n")
-cat("   - cov =",cov,"\n")
-cat("   - Ncall =",Ncall,"\n")
-
-ecdf_MC <- local({
-  lower.tail <- lower.tail
-  G <- G*(-1)^(!lower.tail)
-  function(q) {
-    if(lower.tail==TRUE){
-      p <- mean(G<q)
-    }
-    else{
-      p <- mean(G>q)
-    }
-    p
+  
+  if(plot==TRUE & dimension>2){
+    message("Cannot plot in dimension > 2")
+    plot <- FALSE
   }
-})
-
-#' @return An object of class \code{list} containing the failure probability and some
-#' more outputs as described below:
-res = list(p=P,
-           #' \item{p}{the estimated probabilty.}
-           ecdf_MC = ecdf_MC,
-           #' \item{ecdf_MC}{the empiracal cdf got with the generated samples.}
-           cov=cov,
-           #' \item{cov}{the coefficient of variation of the Monte Carlo estimator.}
-           Ncall=Ncall,
-           #' \item{Ncall}{the total numnber of calls to the \code{lsf}, ie the total
-           #' number of generated samples.}
-           X = U,
-           #' \item{X}{the generated samples.}
-           Y = G*(-1)^(!lower.tail)
-           #' \item{Y}{the value \code{lsf(X)}.}
-           )
-return(res)
+  
+  if(verbose>0){cat(" * STEP 1 : FIRST SAMPLING AND ESTIMATION \n")}
+  Nrem = min(N_max - Ncall, N_batch)
+  if(verbose>1){cat("   - Generate N_batch = ",Nrem," standard samples\n")}
+  U <- matrix(rnorm(dimension*N_batch),dimension,Nrem, dimnames = list(rep(c('x', 'y'), ceiling(dimension/2))[1:dimension]))
+  if(save.X) X <- U
+  
+  if(verbose>1){cat("   - Evaluate LSF on these samples\n")}
+  G = lsf(U); Ncall = Ncall + N_batch
+  
+  if(verbose>1){cat("   - Evaluate q probability and corresponding CoV \n")}
+  P = mean(G < q)
+  cov = sqrt((1-P)/(Ncall*P))
+  
+  if(plot==TRUE){
+    
+    if(!is.null(output_dir)) {
+      fileDir = paste(output_dir,"_Monte_Carlo_brut.pdf",sep="")
+      pdf(fileDir)
+    }
+    xplot <- yplot <- c(-80:80)/10
+    df_plot = data.frame(expand.grid(x=xplot, y=yplot), z = lsf(t(expand.grid(x=xplot, y=yplot))))
+    p <- ggplot(data = df_plot, aes(x,y))
+    indCol = (G>q)+1
+    p <- p + geom_contour(aes(z=z, color = ..level..), breaks = q) +
+      geom_point(data = data.frame(t(U), z = G, ind = indCol), colour = factor(indCol)) +
+      theme(legend.position = "none") +
+      xlim(-8, 8) + ylim(-8, 8)
+    print(p)
+  }
+  
+  Nrem = min(N_max - Ncall, N_batch)
+  
+  if( (verbose>0) && (cov > precision) && (Nrem > 0) ) {cat(" * STEP 2 : LOOP UNTIL COV < PRECISION \n")}
+  
+  while( (cov > precision) && (Nrem > 0) ) {
+    
+    if(verbose>0){cat(" * cov =",cov,">",precision,"and",N_max - Ncall,"remaining calls to the LSF \n")}
+    if(verbose>1){cat("   - Generate N =",Nrem,"standard samples\n")}
+    U = matrix(rnorm(dimension*Nrem),dimension,Nrem, dimnames = list(rep(c('x', 'y'), ceiling(dimension/2))[1:dimension]))
+    if(save.X) X <- cbind(X, U)
+    
+    if(verbose>1){cat("   - Evaluate LSF on these samples\n")}
+    G = c(G,lsf(U)); Ncall = Ncall + Nrem
+    
+    if(plot==TRUE){
+      if(verbose>1){cat("   - Plot these samples\n")}
+      indCol = c(tail(G, Nrem)>q)+1
+      p <- p + geom_point(data = data.frame(t(U), z = tail(G, Nrem), ind = indCol), colour= factor(indCol))
+      print(p)
+    }
+    
+    if(verbose>1){cat("   - Evaluate q probability and corresponding CoV \n")}
+    P = mean(G < q)
+    cov = sqrt((1-P)/(Ncall*P))
+    
+    if(verbose>1){cat("   - P =",P,"\n")}
+    if(verbose>1){cat("   - cov =",cov,"\n")}
+    
+    Nrem = min(N_max - Ncall, N_batch)
+  }
+  
+  if(plot == TRUE) {
+    if(!is.null(output_dir)) {dev.off()}
+  }
+  
+  cat("========================================================================\n")
+  cat("                    End of Monte-Carlo algorithm\n")
+  cat("========================================================================\n\n")
+  
+  cat("   - p =",P,"\n")
+  cat("   - q =", q, "\n")
+  cat("   - 95% confidence intervalle :",P*(1-2*cov),"< p <",P*(1+2*cov),"\n")
+  cat("   - cov =",cov,"\n")
+  cat("   - Ncall =",Ncall,"\n")
+  
+  ecdf_MC <- local({
+    lower.tail <- lower.tail
+    G <- G*(-1)^(!lower.tail)
+    function(q) {
+      sapply(q, function(q){
+        if(lower.tail==TRUE){
+          p <- mean(G<q)
+        }
+        else{
+          p <- mean(G>q)
+        }
+        p
+      })
+    }
+  })
+  
+  #' @return An object of class \code{list} containing the failure probability and some
+  #' more outputs as described below:
+  res = list(p=P,
+             #' \item{p}{the estimated probabilty.}
+             ecdf = ecdf_MC,
+             #' \item{ecdf}{the empiracal cdf got with the generated samples.}
+             cov=cov,
+             #' \item{cov}{the coefficient of variation of the Monte Carlo estimator.}
+             Ncall=Ncall,
+             #' \item{Ncall}{the total numnber of calls to the \code{lsf}, ie the total
+             #' number of generated samples.}
+             X = X,
+             #' \item{X}{the generated samples.}
+             Y = G*(-1)^(!lower.tail)
+             #' \item{Y}{the value \code{lsf(X)}.}
+  )
+  return(res)
 }

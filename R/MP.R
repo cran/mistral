@@ -3,7 +3,7 @@
 #' @description This function runs the Moving Particles algorithm for estimating extreme probability
 #' and quantile.
 #'
-#' @author Clement WALTER \email{clement.walter@cea.fr}
+#' @author Clement WALTER \email{clementwalter@icloud.com}
 #'
 #' @aliases LPA
 #'
@@ -90,10 +90,10 @@ MP = function(dimension,
               #' @param lsf the function defining the RV of interest Y = lsf(X).
               N = 100,
               #' @param N the total number of particles,
-              N.batch = 1,
+              N.batch = foreach::getDoParWorkers(),
               #' @param N.batch the number of parallel batches for the algorithm. Each batch will then
               #' have \code{N/N.batch} particles. Typically this could be \code{detectCores()} or some
-              #' other machine-derived parameters.
+              #' other machine-derived parameters. Note that \code{N/N.batch} has to be an integer.
               p,
               #' @param p a given probability to estimate the corresponding quantile (as in qxxxx functions).
               q,
@@ -117,13 +117,16 @@ MP = function(dimension,
               breaks = N.batch/5,
               #' @param breaks for the final histogram is \code{chi2 == TRUE}.
               ...) {
-              #' @param ... further arguments past to \code{\link{IRW}}.
-
+  #' @param ... further arguments past to \code{\link{IRW}}.
+  
+  cat('========================================================================\n')
+  cat('                       Beginning of MP algorithm\n')
+  cat('========================================================================\n')
   ## STEP 0 : INITIALISATION
-
+  
   # Fix NOTE issue with R CMD check
   k <- NULL
-
+  
   # Define transpose for list of lists with same fields, eg output of foreach
   t.list <- function(l){
     lapply(split(do.call("c", l), names(l[[1]])), unname)
@@ -136,12 +139,12 @@ MP = function(dimension,
     lsf_dec = arg$lsf
     arg$lsf = function(x) -1*lsf_dec(x)
   }
-
+  
   estim.proba <- missing(p)
   estim.quantile <- !estim.proba
-
+  
   if(estim.quantile){ # quantile estimation
-
+    
     if(missing(Niter_1fold)){
       Niter_1fold = function(N,n = N.batch) {
         t = -log(p)
@@ -161,90 +164,104 @@ MP = function(dimension,
       }
     }
     moves = c()
-
+    
     cat(" =============================================== \n")
-    cat(" STEP 1 : MOVE PARTICLEs A GIVEN NUMBER OF TIMES \n")
+    cat(" STEP 1 : MOVE PARTICLES A GIVEN NUMBER OF TIMES \n")
     cat(" =============================================== \n\n")
-
+    
     cat(" * Number of deterministic event per algorithm =",Niter_1fold(N),"\n\n")
-
-    cat(" ### PARALLEL PART: N.batch =", N.batch, "\n\n")
+    
+    cat(" ### PARALLEL PART ###\n")
+    cat(" * backend:", ifelse(is.null(foreach::getDoParName()), "no registered backend", foreach::getDoParName()), "\n")
+    cat(" * N.batch =", N.batch, "\n\n")
     mp.1 <- foreach(k=icount(N.batch)) %dopar% {
-      cat(" * TRAIN N0",k,"in",N.batch,"\n")
       arg$Nevent = Niter_1fold(N)
-      capture.output(mp <- do.call(IRW,arg))
-      mp[c('L', 'Ncall', 'particles', 'LSF_particles')]
+      if(verbose<2){
+        capture.output(mp <- do.call(IRW,arg))
+      } else {
+        mp <- do.call(IRW, arg)
+      }
+      mp[c('L', 'Ncall', 'X', 'y')]
     }
-
+    
     t.mp.1 <- t(mp.1)
     Ncall <- unlist(t.mp.1$Ncall)
     L <- unlist(t.mp.1$L)
     L_max <- max(L)
-    cat("\n ### END OF PARALLEL PART ; furthest point =", (-1)^lower.tail*L_max,"\n\n")
-
+    # cat("\n ### END OF PARALLEL PART; furthest point =", (-1)^lower.tail*L_max,"\n\n")
+    
     cat(" ===================================================== \n")
-    cat(" STEP 2 : RESTART ALGORITHM UNTIL FAILURE =",(-1)^lower.tail*L_max," \n")
+    cat(" STEP 2 : RESTART ALGORITHM UNTIL",(-1)^lower.tail*L_max," \n")
     cat(" ===================================================== \n\n")
-
-    cat(" ### PARALLEL PART: N.batch =", N.batch, "\n\n")
+    
+    cat(" ### PARALLEL PART ###\n")
+    cat(" * backend:", foreach::getDoParName(), "\n")
+    cat(" * N.batch =", N.batch, "\n\n")
     mp.2 <- foreach(i=iter(mp.1)) %dopar% {
       arg = c(list(
-        particles = i$particles,
-        LSF_particles = i$LSF_particles,
+        X = i$X,
+        y = i$y,
         q = L_max,
         last.return = FALSE),
         arg)
-      capture.output(mp <- do.call(IRW,arg))
+      if(verbose<2){
+        capture.output(mp <- do.call(IRW,arg))
+      } else {
+        mp <- do.call(IRW,arg)
+      }
       tryCatch(
         if(max(mp$L) > L_max){stop("Last time of algorithms should not be greater than furthest time of the first step \n")},
         warning = function(cond){}
       )
       mp$L <- mp$L[-1] # First time equals last one from first pass
-      mp[c('L', 'Ncall', 'particles', 'LSF_particles')]
+      mp[c('L', 'Ncall', 'X', 'y')]
     }
     t.mp.2 <- t(mp.2)
     moves <- sapply(t.mp.2$L, length) + Niter_1fold(N)
-    particles = do.call(cbind, t.mp.2$particles)
-    LSF_particles = unlist(t.mp.2$LSF_particles)
+    X = do.call(cbind, t.mp.2$X)
+    y = unlist(t.mp.2$y)
     Ncall <- Ncall + unlist(t.mp.2$Ncall)
     L = sort(c(L, unlist(t.mp.2$L)))
-    cat("\n ### END OF PARALLEL PART \n\n")
-
+    # cat("\n ### END OF PARALLEL PART \n\n")
+    
   }
   else{ # probability estimation
     arg$q <- (-1)^lower.tail*q
-
-    cat(" ===================================== \n")
-    cat(" STEP 1 : MOVE PARTICLES UNTIL FAILURE \n")
-    cat(" ===================================== \n\n")
-
-    cat(" ### PARALLEL PART: N.batch =", N.batch, "\n\n")
+    
+    # cat(" ===================================== \n")
+    # cat(" STEP 1 : MOVE PARTICLES UNTIL FAILURE \n")
+    # cat(" ===================================== \n\n")
+    # 
+    cat(" ### PARALLEL PART ###\n")
+    cat(" * backend:", foreach::getDoParName(), "\n")
+    cat(" * N.batch =", N.batch, "\n\n")
     mp <- foreach(k=icount(N.batch)) %dopar% {
-      cat(" * TRAIN N0",k,"in",N.batch,"\n")
+      #cat(" * TRAIN N0",k,"in",N.batch,"\n")
       if(verbose<2){capture.output(mp <- do.call(IRW, arg))}
       else{mp <- do.call(IRW, arg)}
-      mp[c('Ncall', 'L', 'particles', 'LSF_particles')]
+      mp[c('Ncall', 'L', 'X', 'y')]
     }
     t.mp <- t(mp)
-    Ncall <- L <- particles <- LSF_particles <- NULL
+    Ncall <- L <- X <- y <- NULL
     lapply(mp, function(l) {
       Ncall <<- c(Ncall, l$Ncall)
       L <<- c(L, l$L)
-      particles <<- cbind(particles, l$particles)
-      LSF_particles <<- c(LSF_particles, l$LSF_particles)
+      X <<- cbind(X, l$X)
+      y <<- c(y, l$y)
     })
     moves <- sapply(t.mp$L, length)
-    cat("\n ### END OF PARALLEL PART \n\n")
+    # cat(" ### END OF PARALLEL PART \n\n")
   }
-
-  cat(" ===================================================== \n")
-  cat(" END : COMPUTE STATISTICS \n")
-  cat(" ===================================================== \n\n")
-
-  Ntot = length(LSF_particles)
+  
+  cat("========================================================================\n")
+  cat("                        End of MP algorithm \n")
+  cat("========================================================================\n\n")
+  
+  Ntot = length(y)
   if(estim.proba){
     p = (1 - 1/Ntot)^sum(L<(q*(-1)^lower.tail))
-    p_int = c( p*exp(-2*sqrt(-log(p)/Ntot)) , p*exp(+2*sqrt(-log(p)/Ntot)) )
+    p_int = c( p*exp(-1.96*sqrt(-log(p)/Ntot)) , p*exp(+1.96*sqrt(-log(p)/Ntot)) )
+    cov = sqrt(-log(p)/Ntot)
     L_max <- q
     q_int <- c(q, q)
   }
@@ -252,6 +269,7 @@ MP = function(dimension,
     m = ceiling(-Ntot*log(p))
     q = 0.5*(L[m-1] + L[m])*(-1)^lower.tail
     q_int = c( L[floor(m-1.96*sqrt(m))] , L[ceiling(m+1.96*sqrt(m))] )*(-1)^lower.tail
+    cov = NA
     p_int <- c(p, p)
     L_max <- (-1)^lower.tail*L_max
   }
@@ -262,18 +280,26 @@ MP = function(dimension,
     L <- L;
     Ntot <- Ntot
     function(q) {
-      if(lower.tail==TRUE){
-        Nevent <- sum(L>q)
-        if(q<L_max) stop(paste('Empirical cdf valid only for q >', L_max))
-      }
-      else{
-        Nevent <- sum(L<q)
-        if(q>L_max) stop(paste('Empirical cdf valid only for q <', L_max))
-      }
-      (1-1/Ntot)^Nevent
+      sapply(q, function(q) {
+        if(lower.tail==TRUE){
+          Nevent <- sum(L>q)
+          if(q<L_max) {
+            message(paste('Empirical cdf valid only for q >=', L_max))
+            Nevent <- NA
+          }
+        }
+        else{
+          Nevent <- sum(L<q)
+          if(q>L_max) {
+            message(paste('Empirical cdf valid only for q =<', L_max))
+            Nevent <- NA
+          }
+        }
+        (1-1/Ntot)^Nevent
+      })
     }
   })
-
+  
   if(chi2 == TRUE) {
     res = hist(moves, breaks = breaks, freq = FALSE)
     cont = res$counts; l = length(cont)
@@ -286,7 +312,7 @@ MP = function(dimension,
     capture.output(chi2.test <- chisq.test(x = cont, p = chi2_p))
     p.val = 1 - pchisq(chi2.test$statistic, df = (l-2))
   }
-
+  
   cat("   - p =",p,"\n")
   cat("   - q =",q,"\n")
   if(estim.proba){
@@ -306,33 +332,39 @@ MP = function(dimension,
   }
   cat("   - Total number of calls =",sum(Ncall),"\n")
   if(chi2 == TRUE) {cat("   - Chi-2 test =", chi2.test$statistic,"; p-value =", p.val,"\n")}
-
+  
   #' @return An object of class \code{list} containing the outputs described below:
   res = list(p = p,
              #' \item{p}{the estimated probability or the reference for the quantile estimate.}
              q = q,
              #' \item{q}{the estimated quantile or the reference for the probability estimate.}
-             ecdf_MP = ecdf_MP,
-             #' \item{ecdf_MP}{the empirical cdf.}
+             cv = ifelse(estim.proba, sqrt(sum(moves))/Ntot, 0),
+             #' \item{cv}{the coefficient of variation of the probability estimator.}
+             ecdf = ecdf_MP,
+             #' \item{ecdf}{the empirical cdf.}
+             L = L,
+             #' \item{L}{the states of the random walk.}
              L_max = L_max,
              #' \item{L_max}{the farthest state reached by the random process. Validity range
-             #' for the \code{ecdf_MP} is then (-Inf, L_max] or [L_max, Inf).}
+             #' for the \code{ecdf} is then (-Inf, L_max] or [L_max, Inf).}
              times = L,
              #' \item{times}{the \emph{times} of the random process.}
              Ncall = Ncall,
              #' \item{Ncall}{the total number of calls to the \code{lsf}.}
-             particles = particles,
-             #' \item{particles}{the \code{N} particles in their final state.}
-             LSF_particles = LSF_particles,
-             #' \item{LSF_particles}{the value of the \code{lsf(particles)}.}
+             X = X,
+             #' \item{X}{the \code{N} particles in their final state.}
+             y = y,
+             #' \item{y}{the value of the \code{lsf(X)}.}
              moves = moves)
-             #' \item{moves}{a vector containing the number of moves for each batch.}
-
+  #' \item{moves}{a vector containing the number of moves for each batch.}
+  
   if(estim.proba){
     res <- c(res, list(
-      p_int = p_int
+      p_int = p_int,
       #' \item{p_int}{a 95\% confidence intervalle on the probability estimate.}
-      ))
+      cov = cov
+      #' \item{cov}{the coefficient of variation of the estimator}
+    ))
   }
   else{
     res <- c(res, list(

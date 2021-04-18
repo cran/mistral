@@ -6,10 +6,25 @@
 \alias{TPA}
 \title{Increasing Randow Walk}
 \usage{
-IRW(dimension, lsf, N = 10, q = Inf, Nevent = Inf, particles,
-  LSF_particles = lsf(particles), K, burnin = 20, sigma = 0.3,
-  last.return = TRUE, use.potential = TRUE, plot = FALSE,
-  print_plot = FALSE, output_dir = NULL)
+IRW(
+  dimension,
+  lsf,
+  N = 10,
+  q = Inf,
+  Nevent = Inf,
+  X,
+  y = lsf(X),
+  K,
+  burnin = 20,
+  sigma = 0.3,
+  last.return = TRUE,
+  use.potential = TRUE,
+  plot = FALSE,
+  plot.lsf = FALSE,
+  print_plot = FALSE,
+  output_dir = NULL,
+  plot.lab = c("x_1", "x_2")
+)
 }
 \arguments{
 \item{dimension}{dimension of the input space.}
@@ -22,9 +37,9 @@ IRW(dimension, lsf, N = 10, q = Inf, Nevent = Inf, particles,
 
 \item{Nevent}{the number of desired events.}
 
-\item{particles}{to start with some given particles.}
+\item{X}{to start with some given particles.}
 
-\item{LSF_particles}{value of the \code{lsf} on these particles.}
+\item{y}{value of the \code{lsf} on X.}
 
 \item{K}{kernel transition for conditional generations.}
 
@@ -40,6 +55,10 @@ directly related to the sample to be moved with the MH algorithm.}
 \item{plot}{if \code{TRUE}, the algorithm plots the evolution of the particles. This
 requieres to evaluate the \code{lsf} on a grid and is only for visual purpose.}
 
+\item{plot.lsf}{a boolean indicating if the \code{lsf} should be added to the
+plot. This requires the evaluation of the \code{lsf} over a grid and
+consequently should be used only for illustation purposes.}
+
 \item{print_plot}{if TRUE, print the updated plot after each iteration. This might
 be slow; use with a small \code{N}. Otherwise it only prints the final plot.}
 
@@ -47,14 +66,16 @@ be slow; use with a small \code{N}. Otherwise it only prints the final plot.}
 be pasted with \sQuote{_IRW.pdf}. Together with \code{print_plot==TRUE} this will
 produce a pdf with a plot at each iteration, enabling \sQuote{video} reconstitution
 of the algorithm.}
+
+\item{plot.lab}{the x and y labels for the plot}
 }
 \value{
 An object of class \code{list} containing the following data:
 \item{L}{the events of the random walk.}
 \item{M}{the total number of iterations.}
 \item{Ncall}{the total number of calls to the \code{lsf}.}
-\item{particles}{a matrix containing the final particles.}
-\item{LSF_particles}{the value of \code{lsf} on the \code{particles}.}
+\item{X}{a matrix containing the final particles.}
+\item{y}{the value of \code{lsf} on \code{X}.}
 \item{q}{the threshold considered when generating the random walk.}
 \item{Nevent}{the target number of events when generating the random walk.}
 \item{Nwmoves}{the number of rejected transitions, ie when the proposed point was not stricly
@@ -76,7 +97,7 @@ is directly related to P[ lsf(X) > q]. It is the core tool of algorithms
 such as nested sampling, Last Particle Algorithm or Tootsie Pop Algorithm.
 
 Bascially for \code{N = 1}, it generates a sample \eqn{Y = lsf(X)} and iteratively
-regenerates greater than the sought value: \eqn{Y_{n+1} \sim \mu^Y( \cdot \mid Y > Y_n}. This
+regenerates greater than the found value: \eqn{Y_{n+1} \sim \mu^Y( \cdot \mid Y > Y_n}. This
 regeneration step is done with a Metropolis-Hastings algorithm and that is why it is usefull
 to consider generating several chains all together (\code{N > 1}).
 
@@ -104,9 +125,6 @@ lsf <- function(x) -1*kiureghian(x)
 fail.samp <- IRW(2, lsf, q = 0, N = 10, plot = TRUE)
 }
 }
-\author{
-Clement WALTER \email{clement.walter@cea.fr}
-}
 \references{
 \itemize{
 \item C. Walter:\cr
@@ -116,6 +134,7 @@ Structural Safety, 55, 10-25.\cr
 
 \item C. Walter:\cr
 \emph{Point Process-based Monte Carlo estimation}\cr
+Statistics and Computing, in press, 1-18.\cr
 arXiv preprint arXiv:1412.6368.\cr
 
 \item J. Skilling:\cr
@@ -135,4 +154,6 @@ Applied Mathematics \& Optimization, 64(2), 171-196.
 \seealso{
 \code{\link{MP}}
 }
-
+\author{
+Clement WALTER \email{clementwalter@icloud.com}
+}

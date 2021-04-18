@@ -18,7 +18,8 @@ trainModel = function(model=NULL,
                       optim.method = "BFGS",
                       cost=NA,
                       gamma=NA,
-                      coef.trend) {
+                      coef.trend,
+                      verbose=0) {
 
     ## SVM
     
@@ -35,7 +36,9 @@ trainModel = function(model=NULL,
                                  type="C-classification",
                                  cost=cost,
                                  gamma=gamma)$best.model
-			cat("SVM parameters tunned :\n  gamma =",model.new$gamma,"\n  C =",model.new$cost,"\n")
+			if(verbose>0){
+  			cat("SVM parameters tunned :\n  gamma =",model.new$gamma,"\n  C =",model.new$cost,"\n")
+			}
 		}
 		else {
 			gamma = model$gamma
@@ -80,12 +83,14 @@ trainModel = function(model=NULL,
       }
 			covariance = model.new@covariance
 
-			cat("Kriging model parameters tunned\n")
-            cat("-------------------------------\n")
-            cat("  - cov_type =",covariance@name,"\n")
-            cat("  - theta    =",covariance@range.val,"\n")
-            cat("  - sd2      =",covariance@sd2,"\n")
-            cat("  - trend    =",model.new@trend.coef,"\n")
+			if(verbose>0){
+			  cat("Kriging model parameters tunned\n")
+			  cat("-------------------------------\n")
+			  cat("   - cov_type =",covariance@name,"\n")
+			  cat("   - theta    =",covariance@range.val,"\n")
+			  cat("   - sd2      =",covariance@sd2,"\n")
+			  cat("   - trend    =",model.new@trend.coef,"\n")
+			}
 		}
 		else {
 			updesign = t(updesign)

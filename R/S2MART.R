@@ -4,7 +4,7 @@
 #' threshold, making number of necessary samples lower and the probability estimation
 #' better according to subset simulation by itself.
 #' 
-#' @author Clement WALTER \email{clement.walter@cea.fr}
+#' @author Clement WALTER \email{clementwalter@icloud.com}
 #' 
 #' @details
 #' 
@@ -111,189 +111,197 @@ S2MART = function(dimension,
                   #' @param dimension the dimension of the input space
                   lsf,
                   #' @param lsf the function defining the failure domain. Failure is lsf(X) < \code{failure}
-            			## Algorithm parameters
-            			Nn = 100,
-            			#' @param Nn number of samples to evaluate the quantiles in the subset step
-            			alpha_quantile = 0.1,
-            			#' @param alpha_quantile cutoff probability for the subsets
-            			failure = 0,
-            			#' @param failure the failure threshold
-            			## Meta-model choice
-            
-            			...,
-            			#' @param ... All others parameters of the metamodel based algorithm
-            			## Plot information
-            			plot=FALSE,
-            			#' @param plot to produce a plot of the failure and safety domain. Note that this requires a lot of
-            			#' calls to the \code{lsf} and is thus only for training purpose
-            			output_dir=NULL,
-            			#' @param output_dir to save the plot into the given directory. This will be pasted with "_S2MART.pdf"
+                  ## Algorithm parameters
+                  Nn = 100,
+                  #' @param Nn number of samples to evaluate the quantiles in the subset step
+                  alpha_quantile = 0.1,
+                  #' @param alpha_quantile cutoff probability for the subsets
+                  failure = 0,
+                  #' @param failure the failure threshold
+                  lower.tail = TRUE,
+                  #' @param lower.tail as for pxxxx functions, TRUE for estimating P(lsf(X) < failure), FALSE
+                  #' for P(lsf(X) > failure)
+                  ## Meta-model choice
+                  
+                  ...,
+                  #' @param ... All others parameters of the metamodel based algorithm
+                  ## Plot information
+                  plot=FALSE,
+                  #' @param plot to produce a plot of the failure and safety domain. Note that this requires a lot of
+                  #' calls to the \code{lsf} and is thus only for training purpose
+                  output_dir=NULL,
+                  #' @param output_dir to save the plot into the given directory. This will be pasted with "_S2MART.pdf"
                   verbose = 0) {
-                  #' @param verbose either 0 for almost no output, 1 for medium size output and 2 for all outputs
-
-cat("==========================================================================================\n")
-cat("                 Beginning of Metamodelisation on Subset Simulation algorithm \n")
-cat("==========================================================================================\n")
-
-# Fix NOTE issue with R CMD check
-x <- z <- ..level.. <- NULL
-
-	i = 0;			# Subset number
-	y0 = Inf;		# first level
-	y = NA;			# will be a vector containing the levels
-	meta_fun = list(NA);	# initialise meta_fun list, that will contain lsf approximation at each iteration
-	z_meta = list(NA)	# initialise z_meta list, that will contain evaluation of the surrogate model on the grid
-	P = 1;			# probability
-	Ncall = 0;		# number of calls to the lsf
-	delta2 = 0;		# theoretical cov
-	z_lsf = NULL		# For plotting part
-
-	#Define the list variables used in the core loop
-	U = list(Nn=matrix(nrow=dimension,ncol=Nn))
-	#G stands for the value of the limit state function on these points
-	G = list(g=NA,#value on learn_db points, ie all the value already calculated at a given iteration
-		Nn=NA*c(1:Nn))
-	
-	#beginning of the core loop
-	while (y0>0) {
-
-		i = i+1;
-		cat("\n SUBSET NUMBER ",i,"\n")
-		cat(" -------------\n\n")
-		
-		# plotting part
-		if(plot==TRUE){
-		  if(!is.null(output_dir)) {
-		    fileDir = paste(output_dir,"_S2MART.pdf",sep="")
-		    pdf(fileDir)
-		  }
-		  xplot <- yplot <- c(-80:80)/10
-		  df_plot = data.frame(expand.grid(x=xplot, y=yplot), z = lsf(t(expand.grid(x=xplot, y=yplot))))
-		  p <- ggplot(data = df_plot, aes(x,y)) +
-		    geom_contour(aes(z=z, color=..level..), breaks = failure) +
-		    theme(legend.position = "none") +
-		    xlim(-8, 8) + ylim(-8, 8)
-		  
-		  print(p)
-		}
-		
-
-		cat("===========================================================================\n")
-		cat(" STEP 1 : Subset Simulation part \n")
-		cat("===========================================================================\n\n")
-	
-		if(i==1){
-		  if(verbose>0){cat(" * Generate Nn =",Nn," standard gaussian samples\n")}
-			U$Nn = matrix(rnorm(dimension*Nn, mean=0, sd=1),dimension,Nn)
-		}
-		else {
-		  if(verbose>0){cat(" * Generate Nn = ",Nn," points from the alpha*Nn points lying in F(",i-1,") with MH algorithm\n",sep="")}
-			U$Nn = generateWithlrmM(seeds=U$Nn[,G$Nn<y0],seeds_eval=G$Nn[G$Nn<y0],N=Nn,limit_f=meta_fun[[i-1]])$points
-		}
-	
-		#assessment of g on these points
-		if(verbose>0){cat(" * Assessment of the LSF on these points\n")}
-		G$Nn = lsf(U$Nn);Ncall = Ncall + Nn
-	
-		#Determination of y[i] as alpha-quantile of Nn points Un=U$Nn
-		if(verbose>0){cat(" * Determination of y[",i,"] as alpha-quantile of these samples\n",sep="")}
-		y0 <- y[i] <- getQuantile(data=G$Nn,alpha=alpha_quantile)
-
-	
-		#Add points U$Nn to the learning database
-		if(verbose>0){cat(" * Add points U$Nn to the learning database\n\n")}
-		if(i==1) {
-			learn_db = cbind(seq(0,0,l=dimension),U$Nn)
-			g0 = lsf(as.matrix(seq(0,0,l=dimension)));Ncall = Ncall + 1;
-			G$g = c(g0,G$Nn)
-		}
-		else {
-			learn_db = cbind(learn_db,U$Nn)
-			G$g = c(G$g,G$Nn)
-		}
-		rownames(learn_db) <- rep(c('x', 'y'), length.out = dimension)
-		
-		if(plot==TRUE){
-		  p <- p + geom_point(data = data.frame(t(learn_db), z = G$g), aes(color = z))
-		  print(p)
-		}
-
-		cat("===========================================================================\n")
-		cat(" STEP 2 : Metamodel algorithm part \n")
-		cat("===========================================================================\n\n")
-		if(i==1){
-			arg = list(dimension=dimension,
-					lsf=lsf,
-					failure = y0,
-					learn_db = learn_db,
-					lsf_value = G$g,
-					plot = plot,
-					z_lsf = z_lsf,
-					add = TRUE,
-					output_dir = output_dir,
-          verbose = verbose,...)
-			    meta_step = do.call(SMART,arg)
-		}
-		else{
-			arg = list(dimension=dimension,
-					lsf = lsf,
-					failure = y0,
-					learn_db = learn_db,
-					lsf_value = G$g,
-					seeds = seeds,
-					seeds_eval = seeds_meta,
-					limit_fun_MH = meta_fun[[i-1]],
-					z_lsf = z_lsf,
-					plot = plot,
-					add = TRUE,
-					output_dir = output_dir,
-          verbose = verbose,...)
-				  meta_step = do.call(SMART,arg)
-		}
-
-		if(!is.null(output_dir)){
-		  if(verbose>0){cat("\n * 2D PLOT : CLOSE DEVICE \n")}
-			dev.off()
-		}
-
-		P = P*meta_step$proba
-		delta2 = tryCatch(delta2 + (meta_step$cov)^2,error = function(cond) {return(NA)})
-		Ncall = Ncall + meta_step$Ncall
-		learn_db = meta_step$learn_db
-		G$g = meta_step$lsf_value
-		meta_fun[[i]] = meta_step$meta_fun
-		meta_model = meta_step$meta_model
-		seeds = meta_step$points
-		seeds_meta = meta_step$meta_eval
-		z_meta[[i]] = meta_step$z_meta
-
-		if(y0>0) {cat("\n * Current threshold =",y0,"> 0 => start a new subset\n")
-			  cat("   - Current probability =",P,"\n")
-			  cat("   - Current number of call =",Ncall,"\n")}
-		else {cat("\n * Current threshold =",y0,"=> end of the algorithm\n")
-		      cat("   - Final probability =",P,"\n")
-		      cat("   - Total number of call =",Ncall,"\n")}
-	}
-
-	#' @return   An object of class \code{list} containing the failure probability
-	#' and some more outputs as described below:
-	res = list(p=P,
-	           #' \item{p}{The estimated failure probability.}
+  #' @param verbose either 0 for almost no output, 1 for medium size output and 2 for all outputs
+  
+  cat("========================================================\n")
+  cat("           Beginning of S2MART algorithm \n")
+  cat("========================================================\n")
+  
+  # Fix NOTE issue with R CMD check
+  x <- z <- ..level.. <- NULL
+  
+  if(lower.tail==FALSE){
+    lsf_dec = lsf
+    lsf = function(x) -1*lsf_dec(x)
+    failure <- -failure
+  }
+  
+  if(plot==TRUE & dimension>2){
+    message("Cannot plot in dimension > 2")
+    plot <- FALSE
+  }
+  
+  i = 0;			# Subset number
+  y0 = Inf;		# first level
+  y = NA;			# will be a vector containing the levels
+  meta_fun = list(NA);	# initialise meta_fun list, that will contain lsf approximation at each iteration
+  z_meta = list(NA)	# initialise z_meta list, that will contain evaluation of the surrogate model on the grid
+  P = 1;			# probability
+  Ncall = 0;		# number of calls to the lsf
+  delta2 = 0;		# theoretical cov
+  z_lsf = NULL		# For plotting part
+  
+  #Define the list variables used in the core loop
+  U = list(Nn=matrix(nrow=dimension,ncol=Nn))
+  #G stands for the value of the limit state function on these points
+  G = list(g=NA,#value on X points, ie all the value already calculated at a given iteration
+           Nn=NA*c(1:Nn))
+  
+  #beginning of the core loop
+  while (y0>failure) {
+    
+    i = i+1;
+    cat("\n SUBSET NUMBER",i,"\n")
+    cat(" -------------\n")
+    
+    # plotting part
+    if(plot==TRUE){
+      if(!is.null(output_dir)) {
+        fileDir = paste(output_dir,"_S2MART.pdf",sep="")
+        pdf(fileDir)
+      }
+      xplot <- yplot <- c(-80:80)/10
+      df_plot = data.frame(expand.grid(x=xplot, y=yplot), z = lsf(t(expand.grid(x=xplot, y=yplot))))
+      p <- ggplot(data = df_plot, aes(x,y)) +
+        geom_contour(aes(z=z, color=..level..), breaks = failure) +
+        theme(legend.position = "none") +
+        xlim(-8, 8) + ylim(-8, 8)
+      
+      print(p)
+    }
+    
+    # ===========================================================================
+    # Subset Simulation part \n")
+    # ===========================================================================
+    
+    # Create Monte Carlo population
+    if(i==1){
+      if(verbose>0){cat(" * Generate Nn =",Nn," standard gaussian samples\n")}
+      U$Nn = matrix(rnorm(dimension*Nn, mean=0, sd=1),dimension,Nn)
+    }
+    else {
+      if(verbose>0){cat(" * Generate Nn = ",Nn," points from the alpha*Nn points lying in F(",i-1,") with MH algorithm\n",sep="")}
+      U$Nn = generateWithlrmM(seeds = U$Nn[,G$Nn<y0],
+                              seeds_eval = G$Nn[G$Nn<y0],
+                              N = Nn,
+                              limit_f = meta_fun[[i-1]])$points
+      # U$Nn <- generateK(X = U$Nn[,G$Nn<y0], N = Nn, lsf = function(x) meta_fun[[i-1]](x)$mean < 0)
+    }
+    
+    # Assessment of g on these points
+    if(verbose>0){cat(" * Assessment of the LSF on these points\n")}
+    G$Nn = lsf(U$Nn); Ncall = Ncall + Nn
+    
+    # Determination of y[i] as alpha-quantile of Nn points Un=U$Nn
+    if(verbose>0){cat(" * Determination of y[",i,"] as alpha-quantile of these samples\n",sep="")}
+    y0 <- y[i] <- getQuantile(data=G$Nn, alpha=alpha_quantile, failure=failure)
+    
+    # Add points U$Nn to the learning database
+    if(verbose>0){cat(" * Add points U$Nn to the learning database\n\n")}
+    if(i==1) {
+      # first sample always the origin to insure consistency in the SVM classifier
+      X = cbind(seq(0,0,l=dimension),U$Nn); dimnames(X) <- NULL;
+      g0 = lsf(as.matrix(seq(0,0,l=dimension))); Ncall = Ncall + 1;
+      G$g = c(g0,G$Nn)
+    }
+    else {
+      X = cbind(X,U$Nn); dimnames(X) <- NULL;
+      G$g = c(G$g,G$Nn)
+    }
+    rownames(X) <- rep(c('x', 'y'), length.out = dimension)
+    
+    if(plot==TRUE){
+      p <- p + geom_point(data = data.frame(t(X), z = G$g), aes(color = z))
+      print(p)
+    }
+    
+    # ===========================================================================
+    # STEP 2 : Metamodel algorithm part \n")
+    # ===========================================================================
+    
+    arg = list(dimension=dimension,
+               lsf=lsf,
+               failure = y0,
+               X = X,
+               y = G$g,
+               plot = plot,
+               z_lsf = z_lsf,
+               add = TRUE,
+               output_dir = output_dir,
+               verbose = verbose,...)
+    if(i>1){
+      arg = c(arg, list(
+        seeds = seeds,
+        seeds_eval = seeds_meta,
+        limit_fun_MH = meta_fun[[i-1]]
+      ))
+    }
+    meta_step = do.call(SMART,arg)
+    
+    if(!is.null(output_dir)){
+      if(verbose>0){cat("\n * 2D PLOT : CLOSE DEVICE \n")}
+      dev.off()
+    }
+    
+    P = P*meta_step$proba
+    delta2 = tryCatch(delta2 + (meta_step$cov)^2,error = function(cond) {return(NA)})
+    Ncall = Ncall + meta_step$Ncall
+    X = meta_step$X
+    G$g = meta_step$y
+    meta_fun[[i]] = meta_step$meta_fun
+    meta_model = meta_step$meta_model
+    seeds = meta_step$points
+    seeds_meta = meta_step$meta_eval
+    z_meta[[i]] = meta_step$z_meta
+    
+    if(y0>failure) {cat("\n * Current threshold =",y0,">",failure,"=> start a new subset\n")
+      cat("   - Current probability =",P,"\n")
+      cat("   - Current number of call =",Ncall,"\n")}
+    else {cat("\n * Current threshold =",y0,"=> end of the algorithm\n")
+      cat("   - Final probability =",P,"\n")
+      cat("   - Total number of call =",Ncall,"\n")}
+  }
+  
+  #' @return   An object of class \code{list} containing the failure probability
+  #' and some more outputs as described below:
+  res = list(p=P,
+             #' \item{p}{The estimated failure probability.}
              cov=sqrt(delta2),
-	           #' \item{cov}{The coefficient of variation of the Monte-Carlo probability
-	           #' estimate.}
+             #' \item{cov}{The coefficient of variation of the Monte-Carlo probability
+             #' estimate.}
              Ncall=Ncall,
-	           #' \item{Ncall}{The total number of calls to the \code{lsf}.}
-             learn_db=learn_db,
-	           
-	           #' \item{learn_db}{The final learning database, ie. all points where \code{lsf}
-	           #' has been calculated.}
-             lsf_value=G$g,
-	           
-	           #' \item{lsf_value}{The value of the \code{lsf} on the learning database.}
+             #' \item{Ncall}{The total number of calls to the \code{lsf}.}
+             X=X,
+             
+             #' \item{X}{The final learning database, ie. all points where \code{lsf}
+             #' has been calculated.}
+             y=G$g,
+             
+             #' \item{y}{The value of the \code{lsf} on the learning database.}
              meta_model=meta_model
-	           #' \item{meta_model}{The final metamodel. An object from \pkg{e1071}.}
-             );
-	
-	return(res)
+             #' \item{meta_model}{The final metamodel. An object from \pkg{e1071}.}
+  );
+  
+  return(res)
 }

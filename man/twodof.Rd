@@ -1,6 +1,7 @@
 \name{twodof}
 \docType{data}
 \alias{twodof}
+\alias{oscillator_d8}
 \title{A limit-state-function defined with a two degrees of freedom damped oscillator}
 \description{
   The limit-state function is defined in the standard space and isoprobabilistic transformation is used internally.

@@ -4,16 +4,44 @@
 \alias{MetaIS}
 \title{Metamodel based Impotance Sampling}
 \usage{
-MetaIS(dimension, lsf, N = 5e+05, N_alpha = 100, N_DOE = 10 * dimension,
-  N1 = N_DOE * 30, Ru = 8, Nmin = 30, Nmax = 200, Ncall_max = 1000,
-  precision = 0.05, N_seeds = 2 * dimension, Niter_seed = 10000,
-  N_alphaLOO = 5000, K_alphaLOO = 2 * dimension, alpha_int = c(0.1, 10),
-  k_margin = 1.96, lower.tail = TRUE, learn_db = NULL, lsf_value = NULL,
-  failure = 0, meta_model = NULL, kernel = "matern5_2",
-  learn_each_train = TRUE, limit_fun_MH = NULL, failure_MH = 0,
-  sampling_strategy = "MH", seeds = NULL,
-  seeds_eval = limit_fun_MH(seeds), burnin = 20, plot = FALSE,
-  limited_plot = FALSE, add = FALSE, output_dir = NULL, verbose = 0)
+MetaIS(
+  dimension,
+  lsf,
+  N = 5e+05,
+  N_alpha = 100,
+  N_DOE = 10 * dimension,
+  N1 = N_DOE * 30,
+  Ru = 8,
+  Nmin = 30,
+  Nmax = 200,
+  Ncall_max = 1000,
+  precision = 0.05,
+  N_seeds = 2 * dimension,
+  Niter_seed = Inf,
+  N_alphaLOO = 5000,
+  K_alphaLOO = 1,
+  alpha_int = c(0.1, 10),
+  k_margin = 1.96,
+  lower.tail = TRUE,
+  X = NULL,
+  y = NULL,
+  failure = 0,
+  meta_model = NULL,
+  kernel = "matern5_2",
+  learn_each_train = TRUE,
+  limit_fun_MH = NULL,
+  failure_MH = 0,
+  sampling_strategy = "MH",
+  seeds = NULL,
+  seeds_eval = limit_fun_MH(seeds),
+  burnin = 20,
+  compute.PPP = FALSE,
+  plot = FALSE,
+  limited_plot = FALSE,
+  add = FALSE,
+  output_dir = NULL,
+  verbose = 0
+)
 }
 \arguments{
 \item{dimension}{of the input space}
@@ -55,9 +83,9 @@ than 97,5\%}
 
 \item{lower.tail}{specify if one wants to estimate P[lsf(X)<failure] or P[lsf(X)>failure].}
 
-\item{learn_db}{Coordinates of alredy known points}
+\item{X}{Coordinates of alredy known points}
 
-\item{lsf_value}{Value of the LSF on these points}
+\item{y}{Value of the LSF on these points}
 
 \item{failure}{Failure threshold}
 
@@ -79,6 +107,11 @@ than 97,5\%}
 
 \item{burnin}{Burnin parameter for MH}
 
+\item{compute.PPP}{to simulate a Poisson process at each iteration to estimate
+the conditional expectation and the SUR criteria based on the conditional
+variance: h (average probability of misclassification at level \code{failure})
+and I (integral of h over the whole interval [failure, infty))}
+
 \item{plot}{Set to TRUE for a full plot, ie refresh at each iteration}
 
 \item{limited_plot}{Set to TRUE for a final plot with final DOE, metamodel and LSF}
@@ -96,9 +129,9 @@ and some more outputs as described below:
 \item{cov}{The coefficient of variation of the Monte-Carlo probability
 estimate.}
 \item{Ncall}{The total number of calls to the \code{lsf}.}
-\item{learn_db}{The final learning database, ie. all points where \code{lsf}
+\item{X}{The final learning database, ie. all points where \code{lsf}
 has been calculated.}
-\item{lsf_value}{The value of the \code{lsf} on the learning database.}
+\item{y}{The value of the \code{lsf} on the learning database.}
 \item{meta_fun}{The metamodel approximation of the \code{lsf}. A call output
 is a list containing the value and the standard deviation.}
 \item{meta_model}{The final metamodel. An S4 object from \pkg{DiceKriging}.
@@ -107,9 +140,8 @@ P[lsf(X)<failure] and so using \sQuote{predict} with this object will
 return inverse values if \code{lower.tail==FALSE}; in this scope prefer
 using directly \code{meta_fun} which handle this possible issue.}
 \item{points}{Points in the failure domain according to the metamodel.}
-\item{meta_eval}{Evaluation of the metamodel on these points.}
-\item{z_meta}{If \code{plot}==TRUE, the evaluation of the metamodel on
-the plot grid.}
+\item{h}{the sequence of the estimated relative SUR criteria.}
+\item{I}{the sequence of the estimated integrated SUR criteria.}
 }
 \description{
 Estimate failure probability by MetaIS method.
@@ -196,9 +228,6 @@ cov = sqrt((1-P)/(N*P))
 }
 
 }
-\author{
-Clement WALTER \email{clement.walter@cea.fr}
-}
 \references{
 \itemize{
   \item
@@ -231,4 +260,6 @@ Clement WALTER \email{clement.walter@cea.fr}
 \code{\link{MonteCarlo}}
 \code{\link[DiceKriging]{km}} (in package \pkg{DiceKriging})
 }
-
+\author{
+Clement WALTER \email{clementwalter@icloud.com}
+}

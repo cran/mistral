@@ -4,8 +4,18 @@
 \alias{S2MART}
 \title{Subset by Support vector Margin Algorithm for Reliability esTimation}
 \usage{
-S2MART(dimension, lsf, Nn = 100, alpha_quantile = 0.1, failure = 0, ...,
-  plot = FALSE, output_dir = NULL, verbose = 0)
+S2MART(
+  dimension,
+  lsf,
+  Nn = 100,
+  alpha_quantile = 0.1,
+  failure = 0,
+  lower.tail = TRUE,
+  ...,
+  plot = FALSE,
+  output_dir = NULL,
+  verbose = 0
+)
 }
 \arguments{
 \item{dimension}{the dimension of the input space}
@@ -17,6 +27,9 @@ S2MART(dimension, lsf, Nn = 100, alpha_quantile = 0.1, failure = 0, ...,
 \item{alpha_quantile}{cutoff probability for the subsets}
 
 \item{failure}{the failure threshold}
+
+\item{lower.tail}{as for pxxxx functions, TRUE for estimating P(lsf(X) < failure), FALSE
+for P(lsf(X) > failure)}
 
 \item{...}{All others parameters of the metamodel based algorithm}
 
@@ -34,9 +47,9 @@ and some more outputs as described below:
 \item{cov}{The coefficient of variation of the Monte-Carlo probability
 estimate.}
 \item{Ncall}{The total number of calls to the \code{lsf}.}
-\item{learn_db}{The final learning database, ie. all points where \code{lsf}
+\item{X}{The final learning database, ie. all points where \code{lsf}
 has been calculated.}
-\item{lsf_value}{The value of the \code{lsf} on the learning database.}
+\item{y}{The value of the \code{lsf} on the learning database.}
 \item{meta_model}{The final metamodel. An object from \pkg{e1071}.}
 }
 \description{
@@ -105,9 +118,6 @@ computation; see examples in \link{MonteCarlo}.
 }
 
 }
-\author{
-Clement WALTER \email{clement.walter@cea.fr}
-}
 \references{
 \itemize{
   \item
@@ -143,4 +153,6 @@ Clement WALTER \email{clement.walter@cea.fr}
 \code{\link[DiceKriging]{km}} (in package \pkg{DiceKriging})
 \code{\link[e1071]{svm}} (in package \pkg{e1071})
 }
-
+\author{
+Clement WALTER \email{clementwalter@icloud.com}
+}

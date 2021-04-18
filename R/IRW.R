@@ -5,7 +5,7 @@
 #' 
 #' @aliases NestedSampling TPA
 #' 
-#' @author Clement WALTER \email{clement.walter@cea.fr}
+#' @author Clement WALTER \email{clementwalter@icloud.com}
 #' 
 #' @details This function lets generate the increasing random walk associated with a continous
 #' real-valued random variable of the form \code{Y = lsf(X)} where \code{X} is
@@ -17,7 +17,7 @@
 #' such as nested sampling, Last Particle Algorithm or Tootsie Pop Algorithm.
 #' 
 #' Bascially for \code{N = 1}, it generates a sample \eqn{Y = lsf(X)} and iteratively
-#' regenerates greater than the sought value: \eqn{Y_{n+1} \sim \mu^Y( \cdot \mid Y > Y_n}. This
+#' regenerates greater than the found value: \eqn{Y_{n+1} \sim \mu^Y( \cdot \mid Y > Y_n}. This
 #' regeneration step is done with a Metropolis-Hastings algorithm and that is why it is usefull
 #' to consider generating several chains all together (\code{N > 1}).
 #' 
@@ -45,6 +45,7 @@
 #' 
 #' \item C. Walter:\cr
 #' \emph{Point Process-based Monte Carlo estimation}\cr
+#' Statistics and Computing, in press, 1-18.\cr
 #' arXiv preprint arXiv:1412.6368.\cr
 #' 
 #' \item J. Skilling:\cr
@@ -83,10 +84,10 @@ IRW = function(dimension,
                #' @param q level until which the randow walk is to be generated.
                 Nevent = Inf, 
                #' @param Nevent the number of desired events.
-                particles,          
-               #' @param particles to start with some given particles.
-                LSF_particles = lsf(particles),      
-               #' @param LSF_particles value of the \code{lsf} on these particles.
+                X,          
+               #' @param X to start with some given particles.
+                y = lsf(X),      
+               #' @param y value of the \code{lsf} on X.
                 K,                  
                #' @param K kernel transition for conditional generations.
                 burnin = 20,             
@@ -102,19 +103,25 @@ IRW = function(dimension,
                 plot = FALSE,          
                #' @param plot if \code{TRUE}, the algorithm plots the evolution of the particles. This
                #' requieres to evaluate the \code{lsf} on a grid and is only for visual purpose.
+                plot.lsf = FALSE,
+               #' @param plot.lsf a boolean indicating if the \code{lsf} should be added to the
+               #' plot. This requires the evaluation of the \code{lsf} over a grid and
+               #' consequently should be used only for illustation purposes.
                 print_plot = FALSE,       
                #' @param print_plot if TRUE, print the updated plot after each iteration. This might
                #' be slow; use with a small \code{N}. Otherwise it only prints the final plot.
-                output_dir = NULL     
+                output_dir = NULL,
                #' @param output_dir if plots are to be saved in pdf in a given directory. This will
                #' be pasted with \sQuote{_IRW.pdf}. Together with \code{print_plot==TRUE} this will
                #' produce a pdf with a plot at each iteration, enabling \sQuote{video} reconstitution
                #' of the algorithm.
+               plot.lab = c('x_1', 'x_2')
+               #' @param plot.lab the x and y labels for the plot
 ){
 
-  cat("==========================================================================================\n")
-  cat("                              Beginning of MP \n")
-  cat("==========================================================================================\n\n")
+  cat("==========================\n")
+  cat("      Beginning of IRW \n")
+  cat("==========================\n\n")
   
   
   # Fix NOTE issue with R CMD check
@@ -139,31 +146,11 @@ IRW = function(dimension,
   ## Setup potential matrix
   potentiel = matrix(1, nrow=N, ncol=N) - diag(1,N)
   
-  ## Plotting part
-  if(plot==TRUE){
-    
-    cat(" * 2D PLOT : SET-UP \n")
-    if(!is.null(output_dir)){
-      output_d = paste(output_dir,"_IRW.pdf",sep="")
-      pdf(output_d)
-    }
-    xplot <- yplot <- c(-80:80)/10
-    df_plot = data.frame(expand.grid(x=xplot, y=yplot), z = lsf(t(expand.grid(x=xplot, y=yplot))))
-    p <- ggplot(data = df_plot, aes(x,y, z = z)) +
-      geom_contour(aes(color=..level..), breaks = q) +
-      theme(legend.position = "none") +
-      xlim(-8, 8) + ylim(-8, 8)
-    if(print_plot) print(p)
-    else{
-      if(!is.null(output_dir)) list_plot <- list(p)
-    }
-  }
-  
   cat(" =================================== \n")
   cat(" STEP 1 : FIRST SAMPLING AND MINIMUM \n")
   cat(" =================================== \n\n")
   
-  if(missing(particles)){ 
+  if(missing(X)){ 
     cat("## Draw an iid N =",N,"sample (X_i) \n")
     X = matrix(rnorm(dimension*N),ncol=N, dimnames = list(rep(c('x', 'y'), ceiling(dimension/2))[1:dimension]))
     
@@ -172,25 +159,41 @@ IRW = function(dimension,
   }
   else{
     cat("## Restart chain from the particules \n")
-    X = particles
+    # X = particles
     row.names(X) <- rep(c('x', 'y'), ceiling(dimension/2))[1:dimension]
     
     cat("## Get the LSF values \n")
-    if(missing(LSF_particles)) {
+    if(missing(y)) {
       y = lsf(X)
     }
-    else{
-      y = LSF_particles
-    }
+    # else{
+    #   y = LSF_particles
+    # }
     N = length(y)
   }
   
-  if(plot==TRUE) {
-    cat(" * 2D PLOT : UPDATE \n")
-    p <- p + geom_point(data = data.frame(t(X), z = y), aes(color=z))
+  ## Plotting part
+  if(plot==TRUE){
+    
+    cat(" * 2D PLOT : SET-UP \n")
+    if(!is.null(output_dir)){
+      output_d = paste(output_dir,"_IRW.pdf",sep="")
+      pdf(output_d)
+    }
+    p <- ggplot(data = data.frame(t(X), z = y), aes(x,y)) +
+      geom_point(aes(color=z)) +
+      theme(legend.position = "none") +
+      xlim(-8, 8) + ylim(-8, 8) + xlab(plot.lab[1]) + ylab(plot.lab[2])
+      
+    if(plot.lsf==TRUE){
+      xplot <- yplot <- c(-80:80)/10
+      df_plot = data.frame(expand.grid(x=xplot, y=yplot))
+      df_plot$z <- lsf(t(df_plot))
+      p <- p + geom_contour(data = df_plot, aes(z=z, color=..level..), breaks=q)
+    }
     if(print_plot) print(p)
     else{
-      if(!is.null(output_dir)) list_plot <- c(list_plot, list(p))
+      if(!is.null(output_dir)) list_plot <- list(p)
     }
   }
   
@@ -222,6 +225,7 @@ IRW = function(dimension,
       tryCatch(
         {y_star <- lsf(X_star); Ncall = Ncall + 1},
         error = function(cond) {
+          message(cond)
           message("Unable to evaluate the model at proposed point, transition refused \n");
           y_star <<- L[Ndep+1]-1
           return(y_star)
@@ -296,19 +300,19 @@ IRW = function(dimension,
       pdf(output_d)
     }
     print(p)
-    print(ggplot(df_plot, aes(x,y)) +
-            geom_contour(aes(z=z, color=..level..), breaks = q) +
-            geom_point(data = data.frame(t(X), z = y) , aes(color = z)) +
-            theme(legend.position = "none") +
-            xlim(-8, 8) + ylim(-8, 8))
+    # print(ggplot(df_plot, aes(x,y)) +
+    #         geom_contour(aes(z=z, color=..level..), breaks = q) +
+    #         geom_point(data = data.frame(t(X), z = y) , aes(color = z)) +
+    #         theme(legend.position = "none") +
+    #         xlim(-8, 8) + ylim(-8, 8))
     if(!is.null(output_dir)){
       dev.off()
     }
   }
   
-  cat("==========================================================================================\n")
-  cat("                              End of MP \n")
-  cat("==========================================================================================\n\n")
+  cat("=========================\n")
+  cat("       End of IRW \n")
+  cat("=========================\n\n")
 
     cat("   - Number of iterations =",m-1,"\n")
     cat("   - Number of moves =",Ndep,"\n")
@@ -324,10 +328,10 @@ IRW = function(dimension,
 #' \item{M}{the total number of iterations.}
                Ncall = Ncall,
 #' \item{Ncall}{the total number of calls to the \code{lsf}.}
-               particles = X,
-#' \item{particles}{a matrix containing the final particles.}
-               LSF_particles = y,
-#' \item{LSF_particles}{the value of \code{lsf} on the \code{particles}.}
+               X = X,
+#' \item{X}{a matrix containing the final particles.}
+               y = y,
+#' \item{y}{the value of \code{lsf} on \code{X}.}
                q = q,
 #' \item{q}{the threshold considered when generating the random walk.}
                Nevent = Nevent,

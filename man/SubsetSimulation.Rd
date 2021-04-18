@@ -6,9 +6,23 @@
 \alias{subset}
 \title{Subset Simulation Monte Carlo}
 \usage{
-SubsetSimulation(dimension, lsf, p_0 = 0.1, N = 10000, q = 0,
-  lower.tail = TRUE, K, burnin = 20, save.all = FALSE, plot = FALSE,
-  output_dir = NULL, plot.lab = c("x", "y"), verbose = 0)
+SubsetSimulation(
+  dimension,
+  lsf,
+  p_0 = 0.1,
+  N = 10000,
+  q = 0,
+  lower.tail = TRUE,
+  K,
+  thinning = 20,
+  save.all = FALSE,
+  plot = FALSE,
+  plot.level = 5,
+  plot.lsf = TRUE,
+  output_dir = NULL,
+  plot.lab = c("x", "y"),
+  verbose = 0
+)
 }
 \arguments{
 \item{dimension}{the dimension of the input space.}
@@ -30,13 +44,21 @@ K(X) should propose a matrix of candidate sample (same dimension as X) on which
 \code{lsf} will be then evaluated and transition accepted of rejected. Default
 kernel is the one defined K(X) = (X + sigma*W)/sqrt(1 + sigma^2) with W ~ N(0, 1).}
 
-\item{burnin}{a burnin parameter for the the regeneration step.}
+\item{thinning}{a thinning parameter for the the regeneration step.}
 
 \item{save.all}{if TRUE, all the samples generated during the algorithms are saved
 and return at the end. Otherwise only the working population is kept at each
 iteration.}
 
-\item{plot}{to plot the contour of the \code{lsf} and the generated sample.}
+\item{plot}{to plot the generated samples.}
+
+\item{plot.level}{maximum number of expected levels for color consistency. If number of
+levels exceeds this value, the color scale will change according to
+\code{ggplot2} default policy.}
+
+\item{plot.lsf}{a boolean indicating if the \code{lsf} should be added to the
+plot. This requires the evaluation of the \code{lsf} over a grid and
+consequently should be used only for illustation purposes.}
 
 \item{output_dir}{to save the plot into a pdf file. This variable will
 be paster with
@@ -50,7 +72,7 @@ be paster with
 An object of class \code{list} containing the failure probability and
 some more outputs as described below:
 \item{p}{the estimated failure probability.}
-\item{cov}{the estimated coefficient of variation of the estimate.}
+\item{cv}{the estimated coefficient of variation of the estimate.}
 \item{Ncall}{the total number of calls to the \code{lsf}.}
 \item{X}{the working population.}
 \item{Y}{the value lsf(X).}
@@ -99,7 +121,7 @@ C++ codes for example) and/or parallel computation; see examples in \link{MonteC
 # Compare SubsetSimulation with MP
 \dontrun{
 p <- res[[3]]$p # get a reference value for p
-p_0 <- 0.1 # the default value recommended by Au \\& Beck
+p_0 <- 0.1 # the default value recommended by Au \& Beck
 N_mp <- 100
 # to get approxumately the same number of calls to the lsf
 N_ss <- ceiling(N_mp*log(p)/log(p_0))
@@ -117,9 +139,6 @@ print(sd.comp[1]/sd.comp[2]) # variance increase in SubsetSimulation compared to
 colMeans(t(comp[3:4,])) # check similar number of calls
 }
 
-}
-\author{
-Clement WALTER \email{clement.walter@cea.fr}
 }
 \references{
 \itemize{
@@ -141,4 +160,6 @@ Clement WALTER \email{clement.walter@cea.fr}
 \code{\link{MP}}
 \code{\link{MonteCarlo}}
 }
-
+\author{
+Clement WALTER \email{clementwalter@icloud.com}
+}
