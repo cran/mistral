@@ -11,6 +11,6 @@
   Echard, B and Gayton, N and Lemaire, M and Relun, N:\cr
   \emph{A combined Importance Sampling and Kriging reliability method for
     small failure probabilities with time-demanding numerical models}\cr
-  Reliability Engineering \& System Safety 111 232-240, 2013.\cr
+  Reliability Engineering and System Safety 111 232-240, 2013.\cr
 }
 \keyword{datasets}

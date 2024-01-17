@@ -121,7 +121,7 @@ C++ codes for example) and/or parallel computation; see examples in \link{MonteC
 # Compare SubsetSimulation with MP
 \dontrun{
 p <- res[[3]]$p # get a reference value for p
-p_0 <- 0.1 # the default value recommended by Au \& Beck
+p_0 <- 0.1 # the default value recommended by Au and Beck
 N_mp <- 100
 # to get approxumately the same number of calls to the lsf
 N_ss <- ceiling(N_mp*log(p)/log(p_0))
@@ -149,7 +149,7 @@ colMeans(t(comp[3:4,])) # check similar number of calls
    \item A. Guyader, N. Hengartner and E. Matzner-Lober:\cr
     \emph{Simulation and estimation of extreme quantiles and extreme
     probabilities}\cr
-    Applied Mathematics \& Optimization, 64(2), 171-196.\cr
+    Applied Mathematics and Optimization, 64(2), 171-196.\cr
    \item F. Cerou, P. Del Moral, T. Furon and A. Guyader:\cr
    \emph{Sequential Monte Carlo for rare event estimation}\cr
    Statistics and Computing, 22(3), 795-808.\cr

@@ -1,0 +1,10 @@
+
+Changes in version 2.2.2:
+  o Removing dependence to the emoa package (deprecated)
+  o Supress the MRM fct as it requires the fct dominated_hypervolume()
+  of the emoa package
+  o Typo corrections in .Rd files
+  o Changes from 'class()' to 'inherits()' in estimateSUR() fct
+  
+Changes in version 2.2.1:
+  o Add doi number in the Description field

@@ -22,29 +22,14 @@
 \details{
   Supported distributions are :
   \itemize{
-  \item{NORMAL: }{distribution, defined by its mean and standard deviation
-  \deqn{distX <- list(type="Norm", MEAN=0.0, STD=1.0, NAME="X1")}
-}
-  \item{LOGNORMAL: }{distribution, defined by its internal parameters P1=meanlog and P2=sdlog (\code{\link{plnorm}})
-  \deqn{distX <- list(type="Lnorm", P1=10.0, P2=2.0, NAME="X2")}
-}
-  \item{UNIFORM: }{distribution, defined by its internal parameters P1=min and P2=max (\code{\link{punif}})
-  \deqn{distX <- list(type="Unif",P1=2.0, P2=6.0, NAME="X3")}
-}
-  \item{GUMBEL: }{distribution, defined by its internal parameters P1 and P2
-  \deqn{distX <- list(type='Gumbel',P1=6.0, P2=2.0, NAME='X4')}
-}
-  \item{WEIBULL: }{distribution, defined by its internal parameters P1=shape and P2=scale (\code{\link{pweibull}})
-  \deqn{distX <- list(type='Weibull', P1=NULL, P2=NULL, NAME='X5')}
-}
-  \item{GAMMA: }{distribution, defined by its internal parameters P1=shape and P2=scale (\code{\link{pgamma}})
-  \deqn{distX <- list(type='Gamma', P1=6.0, P2=6.0, NAME='X6')}
-}
-  \item{BETA: }{distribution, defined by its internal parameters P1=shape1 and P2=shapze2 (\code{\link{pbeta}})
-  \deqn{distX <- list(type='Beta', P1=6.0, P2=6.0, NAME='X7')}
-}
-}
-}
+  \item NORMAL: distribution, defined by its mean and standard deviation \deqn{distX <- list(type="Norm", MEAN=0.0, STD=1.0, NAME="X1")}
+  \item LOGNORMAL: distribution, defined by its internal parameters P1=meanlog and P2=sdlog (\code{\link{plnorm}}) \deqn{distX <- list(type="Lnorm", P1=10.0, P2=2.0, NAME="X2")}
+  \item UNIFORM: distribution, defined by its internal parameters P1=min and P2=max (\code{\link{punif}}) \deqn{distX <- list(type="Unif",P1=2.0, P2=6.0, NAME="X3")}
+  \item GUMBEL: distribution, defined by its internal parameters P1 and P2 \deqn{distX <- list(type='Gumbel',P1=6.0, P2=2.0, NAME='X4')}
+  \item WEIBULL: distribution, defined by its internal parameters P1=shape and P2=scale (\code{\link{pweibull}}) \deqn{distX <- list(type='Weibull', P1=NULL, P2=NULL, NAME='X5')}
+  \item GAMMA: distribution, defined by its internal parameters P1=shape and P2=scale (\code{\link{pgamma}}) \deqn{distX <- list(type='Gamma', P1=6.0, P2=6.0, NAME='X6')}
+  \item BETA: distribution, defined by its internal parameters P1=shape1 and P2=shapze2 (\code{\link{pbeta}}) \deqn{distX <- list(type='Beta', P1=6.0, P2=6.0, NAME='X7')}
+}}
 
 \seealso{
   \code{\link{ModifCorrMatrix}}, \code{\link{ComputeDistributionParameter}}

@@ -55,7 +55,7 @@ A list containing the following entries:
 }
 \description{
 The function implements the specific modified Metropolis-Hastings algorithm
-as described first by Au \& Beck and including another scaling parameter for an extended
+as described first by Au and Beck and including another scaling parameter for an extended
 search in initial steps of the \code{SMART} algorithm.
 }
 \details{

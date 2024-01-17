@@ -1,5 +1,5 @@
 ---
-title: "Using mistral for reliability analysis"
+title: "Using mistral for structural reliability analysis"
 author: "Clément Walter"
 date: '`r Sys.Date()`'
 output: rmarkdown::html_document

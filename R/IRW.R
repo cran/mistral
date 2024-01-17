@@ -52,14 +52,14 @@
 #' \emph{Nested sampling for general Bayesian computation}\cr
 #' Bayesian Analysis, 1(4), 833-859.\cr
 #' 
-#' \item M. Huber \& S. Schott:\cr
+#' \item M. Huber and S. Schott:\cr
 #' \emph{Using TPA for Bayesian inference}\cr
 #' Bayesian Statistics 9, 9, 257.\cr
 #' 
 #' \item A. Guyader, N. Hengartner and E. Matzner-Lober:\cr
 #' \emph{Simulation and estimation of extreme quantiles and extreme
 #' probabilities}\cr
-#' Applied Mathematics \& Optimization, 64(2), 171-196.
+#' Applied Mathematics and Optimization, 64(2), 171-196.
 #' }
 #' 
 #' @seealso

@@ -41,7 +41,7 @@
 #'    \item A. Guyader, N. Hengartner and E. Matzner-Lober:\cr
 #'     \emph{Simulation and estimation of extreme quantiles and extreme
 #'     probabilities}\cr
-#'     Applied Mathematics \& Optimization, 64(2), 171-196.\cr
+#'     Applied Mathematics and Optimization, 64(2), 171-196.\cr
 #'    \item F. Cerou, P. Del Moral, T. Furon and A. Guyader:\cr
 #'    \emph{Sequential Monte Carlo for rare event estimation}\cr
 #'    Statistics and Computing, 22(3), 795-808.\cr

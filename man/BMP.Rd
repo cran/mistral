@@ -161,7 +161,7 @@ functions.
    \item A. Guyader, N. Hengartner and E. Matzner-Lober:\cr
     \emph{Simulation and estimation of extreme quantiles and extreme
     probabilities}\cr
-    Applied Mathematics \& Optimization, 64(2), 171-196.\cr
+    Applied Mathematics and Optimization, 64(2), 171-196.\cr
    \item C. Walter:\cr
    \emph{Moving Particles: a parallel optimal Multilevel Splitting
    method with application in quantiles estimation and meta-model

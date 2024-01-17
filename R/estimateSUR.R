@@ -117,7 +117,8 @@ estimateSUR <- function(PPP,
                                 }))
                                 return(tmp)
                               }
-      if(class(SUR)!="numeric"){
+#      if(class(SUR)!="numeric"){
+      if(!(inherits(SUR,"numeric"))){
         message(' ! memory issue with parallel computing, approximated SUR used insteead !')
         args$approx = TRUE
         x_pnorm <- seq(from = -4, to = 4, by = 0.2)
@@ -135,7 +136,8 @@ estimateSUR <- function(PPP,
                                   return(tmp)
                                 }
       }
-      if(class(SUR)!="numeric"){
+#      if(class(SUR)!="numeric"){
+      if(!(inherits(SUR,"numeric"))){
         message(' ! memory issue with parallel computing, standard SUR used insteead !')
         args$integrated = FALSE
         SUR <- foreach::foreach(X = iterators::iter(SUR_aug, by ='col', chunksize = ceiling(N_pop/N.batch)),
@@ -151,7 +153,8 @@ estimateSUR <- function(PPP,
                                   return(tmp)
                                 }
       }
-      if(class(SUR)!="numeric"){
+#      if(class(SUR)!="numeric"){
+      if(!(inherits(SUR,"numeric"))){
         print(SUR)
       }
       ind_min = which.min(SUR)
