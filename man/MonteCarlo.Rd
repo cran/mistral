@@ -134,7 +134,6 @@ lsf_par = function(x){
 }
 \seealso{
 \code{\link{SubsetSimulation}}
-\code{\link{foreach}}
 }
 \author{
 Clement WALTER \email{clementwalter@icloud.com}

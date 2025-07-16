@@ -1,4 +1,8 @@
 
+Changes in version 2.2.3:
+  o Corrections of the Authors@R field
+  o Modif importFrom(e1071) for ggplot2 dependency
+
 Changes in version 2.2.2:
   o Removing dependence to the emoa package (deprecated)
   o Supress the MRM fct as it requires the fct dominated_hypervolume()

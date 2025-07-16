@@ -1,6 +1,6 @@
-f7ddac1d4a13db3f047a5338e92ed971 *DESCRIPTION
-cce7ecf219895271fa4fa88eb2bcef3b *NAMESPACE
-ccb4f24738a6a5d85a64693ebe9587c5 *NEWS
+b4328a12196005bfc2c0db7d0e68d195 *DESCRIPTION
+ab7da538f428a7c48f804fe78871b5c1 *NAMESPACE
+a30a71c65c64607653c7608b6c1818fd *NEWS
 1b187895a92735ff8b94e7e448ea6220 *R/AKMCS.R
 3c88d03a198c1757e7344842bd24bf20 *R/BMP.R
 15b7cda09127b8b591abee3813f42484 *R/BSS.R
@@ -52,7 +52,7 @@ e0fef493f959f9a3cad6d3a946e95a71 *R/trainModel.R
 60350750eef0d18fc4970fcc4113dfd6 *R/updateLSVM.R
 39ef90341c35e6a8e3270d6d0fec92d0 *R/updateSd.R
 0925a75d9e2af7f82af243f01e534fb6 *R/updateSd_old.R
-573e18214562f97fb32318c7635f5d2c *build/vignette.rds
+c578fe0541ced8b83e835f680021a164 *build/vignette.rds
 2c1d06c53532b206a2a8493d5a3e9fff *data/cantilever.rda
 1a8ad0f664e6f766fb5e72beb6304b3b *data/kiureghian.rda
 eaf59c6caf5556c1e1d60429ddfd7b64 *data/oscillator_d6.rda
@@ -61,9 +61,9 @@ f4f8deeb951daaf8221629c653b50a1b *data/rackwitz.rda
 04d769ee37ee10adf4eea78197cece8b *data/twodof.rda
 b14e4f3cbeb4c6a7cd51deafc2354fa9 *data/waarts.rda
 d86d7410d1df8d7242b9439573c6fb82 *inst/COPYRIGHT
-c0d8dd99e3dc283a3c7620166b5d8c9e *inst/doc/mistral-vignette.R
+0f30a993cc3425eadc3f23fbc4d508f7 *inst/doc/mistral-vignette.R
 a08f2b5a8cfb273c4e79eca682872ba4 *inst/doc/mistral-vignette.Rmd
-68b65dd2c3a418647456a256dae8187b *inst/doc/mistral-vignette.html
+ecbc589a8404773400716f33f0aeb0e6 *inst/doc/mistral-vignette.html
 fe590b8d3ef2261b904bc3f5b7a9ba55 *inst/testcases/AKMCS.R
 55a3e6b5f73efc5661be6e2d7b462d84 *inst/testcases/Cuve-learndb
 a07f44cf30624d3a869270f2ac346666 *inst/testcases/Lorentz-MP.R
@@ -83,7 +83,7 @@ cbc7cc5b590f5ddb1a34a988adba474a *man/MetaIS.Rd
 dc56b320c4d5e2e2eddb68bfcb263188 *man/MetropolisHastings.Rd
 d329c9ef0632554903a31378cc291962 *man/ModifCorrMatrix.Rd
 d1e985f8a640d912c9f3cd2b04eb1cce *man/MonotonicQuantileEstimation.Rd
-05e06d59aa876599a5007e23b50c6160 *man/MonteCarlo.Rd
+ac910647b71cee030d27931f780f8be2 *man/MonteCarlo.Rd
 6a5b1450f1912d1135b129da4a3626dc *man/S2MART.Rd
 d79665f3835e615c8a65de3ae67cf9c9 *man/SMART.Rd
 061abc7daecc8983849b2569b2dd32f3 *man/SubsetSimulation.Rd
@@ -94,7 +94,7 @@ eecf40a21af83a1ab35682047d09370a *man/XtoU.Rd
 5f44b536e3215fed2237f9fd15336991 *man/estimateSUR.Rd
 6f47898c57c9f37f9880c5114b0d877d *man/generateK.Rd
 f7a11d8e99fef2cfb540180c5678710e *man/kiureghian.Rd
-34cea0345606220364e52ec6e1feacad *man/mistral-package.Rd
+32df71af9c2b178723ca4ebb6c641898 *man/mistral-package.Rd
 da9bc04ced1d7d504678270061d4a114 *man/modelLSVM.Rd
 9fbdad0b7ac26598b322782de3bd6763 *man/ok.Rd
 6a0bfe2ec16adf1a6a6081422cc6bd20 *man/oscillator_d6.Rd
