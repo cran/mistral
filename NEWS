@@ -1,4 +1,7 @@
-
+Changes in version 2.2.4:
+  o Suppresion importFrom(e1071,element) in NAMESPACE file 
+  for ggplot2 dependency
+  
 Changes in version 2.2.3:
   o Corrections of the Authors@R field
   o Modif importFrom(e1071) for ggplot2 dependency

@@ -1,5 +1,5 @@
 Package: mistral
-Version: 2.2.3
+Version: 2.2.4
 Title: Methods in Structural Reliability
 Authors@R: c(person(given = "Bertrand", family = "Iooss", role = c("aut", "cre"), email = "biooss@yahoo.fr"),
   person(given = c("Clement"), family = "Walter", role = "aut"),
@@ -19,9 +19,9 @@ Repository: CRAN
 LazyData: true
 RoxygenNote: 7.0.2
 VignetteBuilder: knitr, rmarkdown
-Packaged: 2025-07-15 12:12:26 UTC; F80570
+Packaged: 2025-08-29 15:28:45 UTC; F80570
 Author: Bertrand Iooss [aut, cre],
   Clement Walter [aut],
   Gilles defaux [aut],
   Vincent Moutoussamy [aut]
-Date/Publication: 2025-07-16 05:00:02 UTC
+Date/Publication: 2025-08-29 16:20:02 UTC

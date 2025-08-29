@@ -1,6 +1,6 @@
-b4328a12196005bfc2c0db7d0e68d195 *DESCRIPTION
-ab7da538f428a7c48f804fe78871b5c1 *NAMESPACE
-a30a71c65c64607653c7608b6c1818fd *NEWS
+b305323450673b72782ba8a66a0546f4 *DESCRIPTION
+c2eaf33e19bd508def7d28f99c7ccf20 *NAMESPACE
+804453cbd24e7f5252f90296f9772112 *NEWS
 1b187895a92735ff8b94e7e448ea6220 *R/AKMCS.R
 3c88d03a198c1757e7344842bd24bf20 *R/BMP.R
 15b7cda09127b8b591abee3813f42484 *R/BSS.R
@@ -63,7 +63,7 @@ b14e4f3cbeb4c6a7cd51deafc2354fa9 *data/waarts.rda
 d86d7410d1df8d7242b9439573c6fb82 *inst/COPYRIGHT
 0f30a993cc3425eadc3f23fbc4d508f7 *inst/doc/mistral-vignette.R
 a08f2b5a8cfb273c4e79eca682872ba4 *inst/doc/mistral-vignette.Rmd
-ecbc589a8404773400716f33f0aeb0e6 *inst/doc/mistral-vignette.html
+217941a71f255f2d4ec4d2b7ea1786f4 *inst/doc/mistral-vignette.html
 fe590b8d3ef2261b904bc3f5b7a9ba55 *inst/testcases/AKMCS.R
 55a3e6b5f73efc5661be6e2d7b462d84 *inst/testcases/Cuve-learndb
 a07f44cf30624d3a869270f2ac346666 *inst/testcases/Lorentz-MP.R
